@@ -1,0 +1,80 @@
+@* Horizontal segmented bar meter — matches the FlexRadio Genius desktop look. *@
+
+<div class="bm">
+    <div class="bm-label">@Label</div>
+    <div class="bm-value">@Value.ToString(Format)</div>
+    <div class="bm-track">
+        <div class="bm-fill" style="@FillStyle"></div>
+    </div>
+    <div class="bm-ticks">
+        @foreach (var t in Ticks)
+        {
+            <span>@t</span>
+        }
+    </div>
+</div>
+
+<style>
+    .bm {
+        display: grid;
+        grid-template-columns: 56px 60px 1fr;
+        grid-template-rows: auto auto;
+        grid-template-areas:
+            "label value track"
+            ".     .     ticks";
+        align-items: center;
+        column-gap: 12px;
+        row-gap: 2px;
+        margin: 6px 0;
+    }
+    .bm-label { grid-area: label; font-size: 22px; font-weight: 700; color: #fff; }
+    .bm-value { grid-area: value; font-size: 24px; font-weight: 700; color: #fff; text-align: right; }
+    .bm-track {
+        grid-area: track;
+        position: relative;
+        height: 22px;
+        background: #0a0a0a;
+        border-radius: 2px;
+        overflow: hidden;
+    }
+    .bm-fill {
+        position: absolute;
+        inset: 0 auto 0 0;
+        transition: width 200ms ease;
+    }
+    .bm-ticks {
+        grid-area: ticks;
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: #aaa;
+        padding-top: 2px;
+    }
+</style>
+
+@code {
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public double Value { get; set; }
+    [Parameter] public double Max { get; set; } = 100;
+    [Parameter] public string Format { get; set; } = "F0";
+    [Parameter] public IReadOnlyList<string> Ticks { get; set; } = Array.Empty<string>();
+
+    /// <summary>Gradient style: "power" | "swr" | "id" | "current".</summary>
+    [Parameter] public string Palette { get; set; } = "power";
+
+    private string FillStyle
+    {
+        get
+        {
+            var pct = Math.Max(0, Math.Min(100, Value / Max * 100));
+            var grad = Palette switch
+            {
+                "swr" => "linear-gradient(90deg, #1a4d1a 0%, #2e7a2e 30%, #d4a017 55%, #b06b1f 70%, #8b1f1f 90%)",
+                "id" => "linear-gradient(90deg, #1c4a55 0%, #2a8090 35%, #d4a017 65%, #8b1f1f 92%)",
+                "current" => "linear-gradient(90deg, #2e7a2e 0%, #d4a017 60%, #8b1f1f 95%)",
+                _ => "linear-gradient(90deg, #143b4a 0%, #2a6e85 50%, #d4a017 80%, #8b1f1f 95%)",
+            };
+            return $"width:{pct:F1}%; background:{grad};";
+        }
+    }
+}

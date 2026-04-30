@@ -1,5 +1,4 @@
 @page "/power"
-@rendermode InteractiveServer
 @attribute [Authorize]
 @inject GeniusOnline.Web.Services.DeviceLiveStore Store
 @implements IDisposable
@@ -8,37 +7,125 @@
 
 @if (Device is null)
 {
-    <MudAlert Severity="Severity.Info">No PowerGenius configured.</MudAlert>
+    <div class="dev-empty">No PowerGenius configured.</div>
 }
 else
 {
-    <MudText Typo="Typo.h5" Class="mb-3">@Device.DisplayName</MudText>
+    <div class="dev-shell">
+        <div class="dev-section">
+            <BarMeter Label="PWR" Value="@Forward" Max="2000" Palette="power"
+                      Ticks="@(new []{"0","500","1K","1K5","2K"})" />
+            <BarMeter Label="SWR" Value="@Swr" Max="3" Format="F2" Palette="swr"
+                      Ticks="@(new []{"1.0","1.5","2.0","2.5","3.0"})" />
+            <BarMeter Label="Id"  Value="@Current" Max="70" Palette="current"
+                      Ticks="@(new []{"0","10","20","30","40","50","60","70"})" />
+        </div>
 
-    <MudGrid Spacing="2">
-        <MudItem xs="6"><Meter Label="Forward" Value="@Forward" Unit="W" Max="2000" /></MudItem>
-        <MudItem xs="6"><Meter Label="Reflected" Value="@Reflected" Unit="W" Max="500" /></MudItem>
-        <MudItem xs="6"><Meter Label="SWR" Value="@Swr" Unit=":1" Max="5" Decimals="2" /></MudItem>
-        <MudItem xs="6"><Meter Label="Temp" Value="@TempC" Unit="°C" Max="100" /></MudItem>
-    </MudGrid>
+        <div class="pgxl-row">
+            <div class="pgxl-slots">
+                <SlotRow Label="A" Ptt="@PttA" Band="@BandA" Freq="@FreqA" Source="@(FlexA ?? "FLEX")"
+                         Operate="@Operate" Tx="@PttA" />
+                <SlotRow Label="B" Ptt="@PttB" Band="@BandB" Freq="@FreqB" Source="@(FlexB ?? "CAT")"
+                         Operate="@Operate" Tx="@PttB" />
+            </div>
+            <div class="pgxl-stats">
+                <div><span class="big">@TempA.ToString("F1")</span> / <span class="big">@TempB.ToString("F1")</span> <span class="unit">°C</span></div>
+                <div class="stat-row"><span class="lbl">Vdd</span> <span class="big">@Vdd.ToString("F1")</span> <span class="unit">V</span></div>
+                <div class="stat-row"><span class="lbl">Vac</span> <span class="big">@Vac.ToString("F0")</span> <span class="unit">V</span></div>
+            </div>
+        </div>
 
-    @if (!string.IsNullOrEmpty(Fault))
-    {
-        <MudAlert Severity="Severity.Error" Class="mt-3">
-            Fault: @Fault
-            <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Size="Size.Small"
-                       OnClick="ClearFault" Class="ml-3">Clear</MudButton>
-        </MudAlert>
-    }
+        @if (!string.IsNullOrEmpty(Fault))
+        {
+            <div class="pgxl-fault">
+                <span>FAULT: @Fault</span>
+                <button class="dev-btn" @onclick="ClearFault">Clear</button>
+            </div>
+        }
+
+        <div class="dev-footer">
+            <span>S/N: —</span>
+            <span>FW: —</span>
+            <span>IP: @(Device.Address ?? "—")</span>
+            <button class="dev-btn primary @(Operate ? "active" : "")" @onclick="ToggleOperate">OPERATE</button>
+        </div>
+    </div>
 }
+
+<style>
+    .dev-shell {
+        background: #1a1a1a;
+        border-radius: 6px;
+        overflow: hidden;
+        max-width: 720px;
+        margin: 0 auto;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .dev-section { padding: 12px 16px; }
+    .pgxl-row {
+        display: grid;
+        grid-template-columns: 1fr 220px;
+        gap: 12px;
+        padding: 8px 16px;
+        background: #1a1a1a;
+    }
+    .pgxl-slots { display: flex; flex-direction: column; }
+    .pgxl-stats {
+        background: #1f1f1f;
+        padding: 10px 14px;
+        border-radius: 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 14px;
+        color: #ddd;
+    }
+    .pgxl-stats .big { font-size: 18px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+    .pgxl-stats .lbl { color: #888; width: 32px; display: inline-block; }
+    .pgxl-stats .unit { color: #888; font-size: 12px; }
+    .stat-row { display: flex; align-items: baseline; gap: 6px; }
+    .pgxl-fault {
+        display: flex; align-items: center; justify-content: space-between;
+        background: #5a1d1d; color: #ffd2d2;
+        padding: 8px 16px; font-weight: 600;
+    }
+    .dev-footer {
+        display: flex; gap: 16px; align-items: center;
+        padding: 8px 16px; background: #111;
+        font-size: 12px; color: #888;
+        border-top: 1px solid #333;
+    }
+    .dev-btn {
+        padding: 8px 18px;
+        background: transparent;
+        border: 1px solid #444;
+        color: #999;
+        font-weight: 700;
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .dev-btn:hover { color: #fff; border-color: #4ea8de; }
+    .dev-btn.primary.active { color: #ffd24f; border-color: #ffd24f; }
+    .dev-footer .dev-btn { margin-left: auto; }
+    .dev-empty { padding: 16px; text-align: center; color: #888; }
+</style>
 
 @code {
     private DeviceIdentity? Device;
-    private double Forward, Reflected, Swr, TempC;
-    private string? Fault;
+    private DeviceStatusFrame? Frame;
+    private double Forward, Swr, Current, Vdd, Vac, TempA, TempB;
+    private bool Operate, PttA, PttB;
+    private string BandA = "—", BandB = "—";
+    private double FreqA, FreqB;
+    private string? FlexA, FlexB, Fault;
 
     protected override void OnInitialized()
     {
         Device = Store.KnownDevices.FirstOrDefault(d => d.Kind == DeviceKind.Power);
+        Refresh();
         Store.Updated += OnUpdated;
     }
 
@@ -46,18 +133,52 @@ else
 
     private void OnUpdated(object? s, DeviceStatusFrame f)
     {
-        if (Device is null || f.DeviceId != Device.Id) return;
-        if (f.Payload.TryGetValue("forwardW", out var fw)) Forward = Convert.ToDouble(fw);
-        if (f.Payload.TryGetValue("reflectedW", out var rf)) Reflected = Convert.ToDouble(rf);
-        if (f.Payload.TryGetValue("swr", out var sw)) Swr = Convert.ToDouble(sw);
-        if (f.Payload.TryGetValue("tempC", out var tc)) TempC = Convert.ToDouble(tc);
-        Fault = f.Payload.TryGetValue("fault", out var ft) ? ft as string : null;
+        if (Device is not null && f.DeviceId == Device.Id) Refresh(f);
+    }
+
+    private void Refresh(DeviceStatusFrame? frame = null)
+    {
+        Frame = frame ?? (Device is null ? null : Store.Get(Device.Id));
+        if (Frame is null) { InvokeAsync(StateHasChanged); return; }
+        var p = Frame.Payload;
+
+        Forward = AsD(p, "forwardW");
+        Swr = AsD(p, "swr");
+        Current = AsD(p, "current");
+        Vdd = AsD(p, "voltage");
+        Vac = AsD(p, "voltageAC");
+        TempA = AsD(p, "tempC");
+        TempB = AsD(p, "harmonicTempC");
+        if (TempB == 0) TempB = TempA;
+        Operate = AsB(p, "operate");
+        PttA = AsB(p, "pttA");
+        PttB = AsB(p, "pttB");
+        BandA = AsS(p, "bandA");
+        BandB = AsS(p, "bandB");
+        FreqA = AsD(p, "freqA");
+        FreqB = AsD(p, "freqB");
+        FlexA = AsS(p, "flexA");
+        FlexB = AsS(p, "flexB");
+        Fault = AsNullableS(p, "fault");
+
         InvokeAsync(StateHasChanged);
     }
 
-    private async Task ClearFault()
-    {
-        if (Device is not null)
-            await Store.ExecuteAsync(new DeviceCommand(Device.Id, "clearFault"));
-    }
+    private static double AsD(IReadOnlyDictionary<string, object?> p, string k)
+        => p.TryGetValue(k, out var v) && v is not null ? Convert.ToDouble(v) : 0;
+    private static bool AsB(IReadOnlyDictionary<string, object?> p, string k)
+        => p.TryGetValue(k, out var v) && v is not null && Convert.ToBoolean(v);
+    private static string AsS(IReadOnlyDictionary<string, object?> p, string k)
+        => p.TryGetValue(k, out var v) ? v?.ToString() ?? "" : "";
+    private static string? AsNullableS(IReadOnlyDictionary<string, object?> p, string k)
+        => p.TryGetValue(k, out var v) ? v as string : null;
+
+    private Task ToggleOperate() => Device is null
+        ? Task.CompletedTask
+        : Store.ExecuteAsync(new DeviceCommand(Device.Id, "setOperate",
+            new Dictionary<string, object?> { ["on"] = !Operate }));
+
+    private Task ClearFault() => Device is null
+        ? Task.CompletedTask
+        : Store.ExecuteAsync(new DeviceCommand(Device.Id, "clearFault"));
 }

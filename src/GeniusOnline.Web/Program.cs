@@ -24,6 +24,7 @@ builder.Host.UseSerilog((ctx, lc) => lc
 builder.Services.AddGeniusDevices(builder.Configuration);
 builder.Services.AddGeniusData(builder.Configuration);
 builder.Services.AddSingleton<DeviceLiveStore>();
+builder.Services.AddSingleton<RuntimeConfigStore>();
 builder.Services.AddHostedService<DeviceHubBroadcaster>();
 builder.Services.AddSignalR();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
@@ -62,6 +63,24 @@ using (var scope = app.Services.CreateScope())
     using var db = dbf.CreateDbContext();
     db.Database.EnsureCreated();
 }
+
+// Apply persisted device config (DB), seeding from appsettings on first run.
+_ = Task.Run(async () =>
+{
+    var store = app.Services.GetRequiredService<RuntimeConfigStore>();
+    var host = app.Services.GetRequiredService<DeviceRegistryHost>();
+    var devices = await store.GetDevicesAsync();
+    await host.ApplyConfigAsync(devices);
+
+    store.DevicesChanged += (_, _) =>
+    {
+        _ = Task.Run(async () =>
+        {
+            var fresh = await store.GetDevicesAsync();
+            await host.ApplyConfigAsync(fresh);
+        });
+    };
+});
 
 app.UseSerilogRequestLogging();
 app.UseStaticFiles();

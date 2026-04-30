@@ -129,21 +129,40 @@ public sealed class PowerAdapter : DeviceAdapterBase
         }
     }
 
+    private bool _loggedFirstStatus;
+
     private void OnStatusUpdated(object? sender, EventArgs e)
     {
         if (_client is null) return;
         var s = _client.Status;
+
+        if (!_loggedFirstStatus)
+        {
+            _loggedFirstStatus = true;
+            _logger.LogInformation(
+                "Power {Id} first status: PeakPWR={Pwr}W PeakSWR={Swr} I={Cur}A V={Vdd}V VAC={Vac}V T={T}°C HT={HT}°C op={Op} bandA={BandA} fault={Fault}",
+                Identity.Id, s.PeakPWR, s.PeakSWR, s.Current, s.Voltage, s.VoltageAC,
+                s.Temperature, s.HarmonicTemperature, s.Operate, s.BandA, s.Error);
+        }
+
         var payload = new Dictionary<string, object?>
         {
             ["operate"] = s.Operate,
             ["forwardW"] = (double)s.PeakPWR,
-            ["swr"] = (double)s.PeakSWR,
+            // Device reports SWR as -60dB (return loss sentinel) when no RF — clamp to 1.0 for display.
+            ["swr"] = s.PeakSWR < 1m ? 1.0 : (double)s.PeakSWR,
             ["voltage"] = (double)s.Voltage,
+            ["voltageAC"] = (double)s.VoltageAC,
             ["current"] = (double)s.Current,
             ["tempC"] = (double)s.Temperature,
+            ["harmonicTempC"] = (double)s.HarmonicTemperature,
             ["fault"] = string.IsNullOrWhiteSpace(s.Error) ? null : s.Error,
             ["bandA"] = s.BandA.ToString(),
             ["bandB"] = s.BandB.ToString(),
+            ["freqA"] = (double)s.CAT1,
+            ["freqB"] = (double)s.CAT2,
+            ["flexA"] = s.FlexRadioA,
+            ["flexB"] = s.FlexRadioB,
             ["pttA"] = s.PTTA,
             ["pttB"] = s.PTTB,
             ["foldback"] = s.Foldback,

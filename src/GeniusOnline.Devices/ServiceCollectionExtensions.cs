@@ -11,7 +11,8 @@ public static class ServiceCollectionExtensions
     {
         services.Configure<DeviceRegistryOptions>(configuration.GetSection("Devices"));
         services.AddSingleton<DeviceRegistry>();
-        services.AddHostedService<DeviceRegistryHost>();
+        services.AddSingleton<DeviceRegistryHost>();
+        services.AddHostedService(sp => sp.GetRequiredService<DeviceRegistryHost>());
         return services;
     }
 }

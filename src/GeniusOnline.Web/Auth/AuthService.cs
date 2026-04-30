@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using GeniusOnline.Web.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.Options;
@@ -9,11 +10,16 @@ public sealed class AuthService
 {
     private readonly IOptionsMonitor<AuthOptions> _options;
     private readonly LoginRateLimiter _limiter;
+    private readonly RuntimeConfigStore _store;
 
-    public AuthService(IOptionsMonitor<AuthOptions> options, LoginRateLimiter limiter)
+    public AuthService(
+        IOptionsMonitor<AuthOptions> options,
+        LoginRateLimiter limiter,
+        RuntimeConfigStore store)
     {
         _options = options;
         _limiter = limiter;
+        _store = store;
     }
 
     public AuthMode Mode => _options.CurrentValue.Mode;
@@ -33,7 +39,8 @@ public sealed class AuthService
             return new LoginResult(true);
         }
 
-        if (string.IsNullOrEmpty(opts.PasswordHash) || !PasswordHasher.Verify(password, opts.PasswordHash))
+        var hash = await _store.GetPasswordHashAsync(ctx.RequestAborted).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(hash) || !PasswordHasher.Verify(password, hash))
         {
             return new LoginResult(false, "Invalid credentials");
         }

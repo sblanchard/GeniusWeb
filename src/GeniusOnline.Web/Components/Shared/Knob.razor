@@ -1,0 +1,32 @@
+@* Read-only knob display matching the desktop look: dial face + value + label. *@
+
+<div class="knob">
+    <svg viewBox="-40 -40 80 80" class="knob-face">
+        <circle r="32" fill="#0d2840" stroke="#3a5a78" stroke-width="2" />
+        @{
+            // Pointer rotates 0..max → -135°..+135°.
+            var pct = Max <= 0 ? 0 : Math.Max(0, Math.Min(1, Value / Max));
+            var deg = -135 + pct * 270;
+            var rad = (deg - 90) * Math.PI / 180.0;
+            var x = (Math.Cos(rad) * 26).ToString("F1");
+            var y = (Math.Sin(rad) * 26).ToString("F1");
+        }
+        <line x1="0" y1="0" x2="@x" y2="@y" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+        <circle r="3" fill="#fff" />
+    </svg>
+    <div class="knob-val">@Value.ToString("F0")</div>
+    <div class="knob-label">@Label</div>
+</div>
+
+<style>
+    .knob { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .knob-face { width: 56px; height: 56px; }
+    .knob-val { font-size: 14px; color: #ddd; font-variant-numeric: tabular-nums; }
+    .knob-label { font-size: 13px; color: #aaa; font-weight: 600; }
+</style>
+
+@code {
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public double Value { get; set; }
+    [Parameter] public double Max { get; set; } = 100;
+}
