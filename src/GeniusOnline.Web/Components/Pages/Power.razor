@@ -1,0 +1,63 @@
+@page "/power"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject GeniusOnline.Web.Services.DeviceLiveStore Store
+@implements IDisposable
+
+<PageTitle>Power</PageTitle>
+
+@if (Device is null)
+{
+    <MudAlert Severity="Severity.Info">No PowerGenius configured.</MudAlert>
+}
+else
+{
+    <MudText Typo="Typo.h5" Class="mb-3">@Device.DisplayName</MudText>
+
+    <MudGrid Spacing="2">
+        <MudItem xs="6"><Meter Label="Forward" Value="@Forward" Unit="W" Max="2000" /></MudItem>
+        <MudItem xs="6"><Meter Label="Reflected" Value="@Reflected" Unit="W" Max="500" /></MudItem>
+        <MudItem xs="6"><Meter Label="SWR" Value="@Swr" Unit=":1" Max="5" Decimals="2" /></MudItem>
+        <MudItem xs="6"><Meter Label="Temp" Value="@TempC" Unit="°C" Max="100" /></MudItem>
+    </MudGrid>
+
+    @if (!string.IsNullOrEmpty(Fault))
+    {
+        <MudAlert Severity="Severity.Error" Class="mt-3">
+            Fault: @Fault
+            <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Size="Size.Small"
+                       OnClick="ClearFault" Class="ml-3">Clear</MudButton>
+        </MudAlert>
+    }
+}
+
+@code {
+    private DeviceIdentity? Device;
+    private double Forward, Reflected, Swr, TempC;
+    private string? Fault;
+
+    protected override void OnInitialized()
+    {
+        Device = Store.KnownDevices.FirstOrDefault(d => d.Kind == DeviceKind.Power);
+        Store.Updated += OnUpdated;
+    }
+
+    public void Dispose() => Store.Updated -= OnUpdated;
+
+    private void OnUpdated(object? s, DeviceStatusFrame f)
+    {
+        if (Device is null || f.DeviceId != Device.Id) return;
+        if (f.Payload.TryGetValue("forwardW", out var fw)) Forward = Convert.ToDouble(fw);
+        if (f.Payload.TryGetValue("reflectedW", out var rf)) Reflected = Convert.ToDouble(rf);
+        if (f.Payload.TryGetValue("swr", out var sw)) Swr = Convert.ToDouble(sw);
+        if (f.Payload.TryGetValue("tempC", out var tc)) TempC = Convert.ToDouble(tc);
+        Fault = f.Payload.TryGetValue("fault", out var ft) ? ft as string : null;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ClearFault()
+    {
+        if (Device is not null)
+            await Store.ExecuteAsync(new DeviceCommand(Device.Id, "clearFault"));
+    }
+}

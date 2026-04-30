@@ -1,0 +1,48 @@
+@inject NavigationManager Nav
+
+<div class="bottom-nav">
+    <MudButton StartIcon="@Icons.Material.Filled.Dashboard"
+               Color="@TabColor("")" FullWidth="true" Href="/">Home</MudButton>
+    <MudButton StartIcon="@Icons.Material.Filled.Explore"
+               Color="@TabColor("rotator")" FullWidth="true" Href="/rotator">Rotator</MudButton>
+    <MudButton StartIcon="@Icons.Material.Filled.SettingsInputAntenna"
+               Color="@TabColor("antenna")" FullWidth="true" Href="/antenna">Antenna</MudButton>
+    <MudButton StartIcon="@Icons.Material.Filled.Bolt"
+               Color="@TabColor("power")" FullWidth="true" Href="/power">Power</MudButton>
+    <MudButton StartIcon="@Icons.Material.Filled.Tune"
+               Color="@TabColor("tuner")" FullWidth="true" Href="/tuner">Tuner</MudButton>
+</div>
+
+<style>
+    .bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        background: #1f1f1f;
+        border-top: 1px solid #333;
+        padding-bottom: env(safe-area-inset-bottom);
+        z-index: 1100;
+    }
+
+    .bottom-nav .mud-button-root {
+        min-height: 56px;
+        flex-direction: column;
+        gap: 2px;
+        font-size: 11px;
+        text-transform: none;
+    }
+</style>
+
+@code {
+    private string CurrentSection => new Uri(Nav.Uri).AbsolutePath.Trim('/').Split('/').FirstOrDefault() ?? string.Empty;
+
+    private MudBlazor.Color TabColor(string section) =>
+        CurrentSection.Equals(section, StringComparison.OrdinalIgnoreCase)
+            ? MudBlazor.Color.Primary
+            : MudBlazor.Color.Default;
+
+    protected override void OnInitialized() => Nav.LocationChanged += (_, _) => InvokeAsync(StateHasChanged);
+}

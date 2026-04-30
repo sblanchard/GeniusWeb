@@ -1,0 +1,28 @@
+bin/
+obj/
+out/
+publish/
+*.user
+*.suo
+.vs/
+.idea/
+.vscode/
+
+# Local config and secrets
+appsettings.Development.json
+appsettings.Production.json
+appsettings.Local.json
+*.pfx
+
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db

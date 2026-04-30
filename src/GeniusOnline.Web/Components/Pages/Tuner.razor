@@ -1,0 +1,67 @@
+@page "/tuner"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject GeniusOnline.Web.Services.DeviceLiveStore Store
+@implements IDisposable
+
+<PageTitle>Tuner</PageTitle>
+
+@if (Device is null)
+{
+    <MudAlert Severity="Severity.Info">No TunerGenius configured.</MudAlert>
+}
+else
+{
+    <MudText Typo="Typo.h5" Class="mb-3">@Device.DisplayName</MudText>
+
+    <MudGrid Spacing="2">
+        <MudItem xs="6">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                       Class="py-6" OnClick="Tune">
+                <MudIcon Icon="@Icons.Material.Filled.Tune" Class="mr-2" /> Tune
+            </MudButton>
+        </MudItem>
+        <MudItem xs="6">
+            <MudButton Variant="Variant.Outlined" FullWidth="true"
+                       Class="py-6" OnClick="Bypass">
+                <MudIcon Icon="@Icons.Material.Filled.SkipNext" Class="mr-2" /> Bypass
+            </MudButton>
+        </MudItem>
+
+        <MudItem xs="6"><Meter Label="SWR (in)" Value="@SwrIn" Unit=":1" Max="5" Decimals="2" /></MudItem>
+        <MudItem xs="6"><Meter Label="SWR (out)" Value="@SwrOut" Unit=":1" Max="5" Decimals="2" /></MudItem>
+        <MudItem xs="6"><Meter Label="L" Value="@L" Unit="μH" Max="20" Decimals="2" /></MudItem>
+        <MudItem xs="6"><Meter Label="C" Value="@C" Unit="pF" Max="2000" /></MudItem>
+    </MudGrid>
+}
+
+@code {
+    private DeviceIdentity? Device;
+    private double SwrIn, SwrOut, L, C;
+
+    protected override void OnInitialized()
+    {
+        Device = Store.KnownDevices.FirstOrDefault(d => d.Kind == DeviceKind.Tuner);
+        Store.Updated += OnUpdated;
+    }
+
+    public void Dispose() => Store.Updated -= OnUpdated;
+
+    private void OnUpdated(object? s, DeviceStatusFrame f)
+    {
+        if (Device is null || f.DeviceId != Device.Id) return;
+        if (f.Payload.TryGetValue("swrIn", out var si)) SwrIn = Convert.ToDouble(si);
+        if (f.Payload.TryGetValue("swrOut", out var so)) SwrOut = Convert.ToDouble(so);
+        if (f.Payload.TryGetValue("l", out var lv)) L = Convert.ToDouble(lv);
+        if (f.Payload.TryGetValue("c", out var cv)) C = Convert.ToDouble(cv);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private Task Tune() => Device is null
+        ? Task.CompletedTask
+        : Store.ExecuteAsync(new DeviceCommand(Device.Id, "tune"));
+
+    private Task Bypass() => Device is null
+        ? Task.CompletedTask
+        : Store.ExecuteAsync(new DeviceCommand(Device.Id, "bypass"));
+}

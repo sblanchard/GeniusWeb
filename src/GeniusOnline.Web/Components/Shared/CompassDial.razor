@@ -1,0 +1,85 @@
+@* Touch-friendly SVG compass dial. Tap or drag to set Target. *@
+
+<div class="compass-shell">
+    <svg viewBox="-110 -110 220 220" @onclick="OnSvgClick" preserveAspectRatio="xMidYMid meet">
+        <circle r="100" fill="#1a1a1a" stroke="#444" stroke-width="2"/>
+        @for (int deg = 0; deg < 360; deg += 30)
+        {
+            var rad = (deg - 90) * Math.PI / 180.0;
+            var x1 = Math.Cos(rad) * 88;
+            var y1 = Math.Sin(rad) * 88;
+            var x2 = Math.Cos(rad) * 100;
+            var y2 = Math.Sin(rad) * 100;
+            <line x1="@x1.ToString("F1")" y1="@y1.ToString("F1")"
+                  x2="@x2.ToString("F1")" y2="@y2.ToString("F1")"
+                  stroke="#666" stroke-width="1"/>
+        }
+
+        @{
+            var labels = new[] { ("N", 0), ("E", 90), ("S", 180), ("W", 270) };
+        }
+        @foreach (var (label, deg) in labels)
+        {
+            var rad = (deg - 90) * Math.PI / 180.0;
+            var x = (Math.Cos(rad) * 75).ToString("F1");
+            var y = (Math.Sin(rad) * 75 + 5).ToString("F1");
+            @((MarkupString)$"<text x='{x}' y='{y}' fill='#aaa' font-size='14' text-anchor='middle'>{label}</text>")
+        }
+
+        @* current azimuth needle *@
+        @{
+            var aRad = (Azimuth - 90) * Math.PI / 180.0;
+            var ax = Math.Cos(aRad) * 80;
+            var ay = Math.Sin(aRad) * 80;
+        }
+        <line x1="0" y1="0" x2="@ax.ToString("F1")" y2="@ay.ToString("F1")"
+              stroke="#4ea8de" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="0" cy="0" r="6" fill="#4ea8de"/>
+
+        @if (Target.HasValue)
+        {
+            var tRad = (Target.Value - 90) * Math.PI / 180.0;
+            var tx = Math.Cos(tRad) * 90;
+            var ty = Math.Sin(tRad) * 90;
+            <circle cx="@tx.ToString("F1")" cy="@ty.ToString("F1")" r="6"
+                    fill="none" stroke="#52b788" stroke-width="3"/>
+        }
+    </svg>
+
+    <div class="readout">
+        <MudText Typo="Typo.h3">@Azimuth.ToString("000")°</MudText>
+        @if (Target.HasValue)
+        {
+            <MudText Typo="Typo.subtitle2" Class="mud-text-secondary">→ @Target.Value.ToString("000")°</MudText>
+        }
+    </div>
+</div>
+
+<style>
+    .compass-shell {
+        display: flex; flex-direction: column; align-items: center; gap: 12px;
+    }
+
+    .compass-shell svg {
+        width: 100%; max-width: 360px; touch-action: none; user-select: none;
+    }
+
+    .readout { text-align: center; }
+</style>
+
+@code {
+    [Parameter] public int Azimuth { get; set; }
+    [Parameter] public int? Target { get; set; }
+    [Parameter] public EventCallback<int> OnTargetSelected { get; set; }
+
+    private async Task OnSvgClick(MouseEventArgs e)
+    {
+        // Translate click into degrees (relative to SVG center). The SVG uses
+        // a -110..110 viewBox so we need to convert clientX/Y to local coords.
+        // For simplicity we use offsetX/Y; OK for tap on phones.
+        var x = e.OffsetX - 110;
+        var y = e.OffsetY - 110;
+        var deg = (int)((Math.Atan2(y, x) * 180.0 / Math.PI) + 90 + 360) % 360;
+        await OnTargetSelected.InvokeAsync(deg);
+    }
+}

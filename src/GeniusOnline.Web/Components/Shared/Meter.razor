@@ -1,0 +1,26 @@
+@* Big-numeric meter card, mobile-first. *@
+
+<MudPaper Class="meter pa-3" Elevation="2">
+    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Label</MudText>
+    <MudText Typo="Typo.h4">@Value.ToString("F" + Decimals)<span class="meter-unit">@Unit</span></MudText>
+    <MudProgressLinear Color="@BarColor" Rounded="true"
+                       Value="@(Math.Min(100, Value / Max * 100))" Class="mt-1" />
+</MudPaper>
+
+<style>
+    .meter { min-height: 96px; }
+    .meter-unit { font-size: 14px; opacity: 0.6; margin-left: 4px; }
+</style>
+
+@code {
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public double Value { get; set; }
+    [Parameter] public string Unit { get; set; } = "";
+    [Parameter] public double Max { get; set; } = 100;
+    [Parameter] public int Decimals { get; set; } = 0;
+
+    private MudBlazor.Color BarColor =>
+        Value / Max > 0.85 ? MudBlazor.Color.Error
+        : Value / Max > 0.65 ? MudBlazor.Color.Warning
+        : MudBlazor.Color.Primary;
+}

@@ -1,0 +1,19 @@
+[Unit]
+Description=GeniusOnline web control panel
+After=network.target
+
+[Service]
+Type=notify
+WorkingDirectory=/opt/geniusonline
+ExecStart=/opt/geniusonline/GeniusOnline.Web
+Restart=on-failure
+RestartSec=5
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://0.0.0.0:9050
+Environment=ConnectionStrings__Default=Data Source=/var/lib/geniusonline/geniusonline.db
+KillSignal=SIGINT
+User=geniusonline
+Group=geniusonline
+
+[Install]
+WantedBy=multi-user.target

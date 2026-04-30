@@ -1,0 +1,69 @@
+@page "/antenna"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject GeniusOnline.Web.Services.DeviceLiveStore Store
+
+<PageTitle>Antenna</PageTitle>
+
+@if (Device is null)
+{
+    <MudAlert Severity="Severity.Info">No antenna switch configured.</MudAlert>
+}
+else
+{
+    <MudText Typo="Typo.h5" Class="mb-3">@Device.DisplayName</MudText>
+
+    <MudText Typo="Typo.subtitle2" Class="mt-2 mb-2">Band → Port</MudText>
+    <MudSimpleTable Bordered="true" Hover="true" Dense="true">
+        <thead>
+            <tr><th>Band</th>@for (int p = 1; p <= PortCount; p++) { <th>@p</th> }</tr>
+        </thead>
+        <tbody>
+            @foreach (var band in Bands)
+            {
+                <tr>
+                    <td>@band</td>
+                    @for (int p = 1; p <= PortCount; p++)
+                    {
+                        var port = p;
+                        var active = SelectedPort.TryGetValue(band, out var sel) && sel == port;
+                        <td class="band-cell">
+                            <MudIconButton Size="Size.Small"
+                                Icon="@(active ? Icons.Material.Filled.RadioButtonChecked : Icons.Material.Filled.RadioButtonUnchecked)"
+                                Color="@(active ? Color.Primary : Color.Default)"
+                                OnClick="() => Select(band, port)" />
+                        </td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </MudSimpleTable>
+}
+
+<style>
+    .band-cell { text-align: center; padding: 4px !important; }
+</style>
+
+@code {
+    private const int PortCount = 8;
+    private static readonly string[] Bands = { "160m", "80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m" };
+
+    private DeviceIdentity? Device;
+    private readonly Dictionary<string, int> SelectedPort = new();
+
+    protected override void OnInitialized()
+    {
+        Device = Store.KnownDevices.FirstOrDefault(d => d.Kind == DeviceKind.Antenna);
+    }
+
+    private async Task Select(string band, int port)
+    {
+        SelectedPort[band] = port;
+        if (Device is not null)
+        {
+            await Store.ExecuteAsync(new DeviceCommand(
+                Device.Id, "route",
+                new Dictionary<string, object?> { ["band"] = band, ["port"] = port }));
+        }
+    }
+}

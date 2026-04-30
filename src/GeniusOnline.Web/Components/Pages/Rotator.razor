@@ -1,0 +1,115 @@
+@page "/rotator"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject GeniusOnline.Web.Services.DeviceLiveStore Store
+@implements IDisposable
+
+<PageTitle>Rotator</PageTitle>
+
+@if (Device is null)
+{
+    <MudAlert Severity="Severity.Info">No rotator configured.</MudAlert>
+}
+else
+{
+    <MudText Typo="Typo.h5" Class="mb-3">@Device.DisplayName</MudText>
+
+    <CompassDial Azimuth="@Azimuth" Target="@TargetAz" OnTargetSelected="OnSelectTarget" />
+
+    <MudGrid Spacing="2" Class="mt-4">
+        <MudItem xs="4">
+            <MudButton Variant="Variant.Outlined" FullWidth="true" Class="py-4"
+                       OnClick="GoCcw" StartIcon="@Icons.Material.Filled.RotateLeft">CCW</MudButton>
+        </MudItem>
+        <MudItem xs="4">
+            <MudButton Variant="Variant.Filled" Color="Color.Error" FullWidth="true" Class="py-4"
+                       OnClick="Stop">Stop</MudButton>
+        </MudItem>
+        <MudItem xs="4">
+            <MudButton Variant="Variant.Outlined" FullWidth="true" Class="py-4"
+                       OnClick="GoCw" EndIcon="@Icons.Material.Filled.RotateRight">CW</MudButton>
+        </MudItem>
+    </MudGrid>
+
+    <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Presets</MudText>
+    <MudGrid Spacing="1">
+        @foreach (var (label, az) in Presets)
+        {
+            <MudItem xs="3">
+                <MudButton Variant="Variant.Outlined" FullWidth="true"
+                           OnClick="() => OnSelectTarget(az)">@label</MudButton>
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+@code {
+    private DeviceIdentity? Device;
+    private int Azimuth;
+    private int? TargetAz;
+    private static readonly (string Label, int Azimuth)[] Presets =
+    {
+        ("N", 0), ("NE", 45), ("E", 90), ("SE", 135),
+        ("S", 180), ("SW", 225), ("W", 270), ("NW", 315),
+    };
+
+    protected override void OnInitialized()
+    {
+        Device = Store.KnownDevices.FirstOrDefault(d => d.Kind == DeviceKind.Rotator);
+        Refresh();
+        Store.Updated += OnUpdated;
+    }
+
+    public void Dispose() => Store.Updated -= OnUpdated;
+
+    private void OnUpdated(object? s, DeviceStatusFrame f)
+    {
+        if (Device is not null && f.DeviceId == Device.Id) Refresh(f);
+    }
+
+    private void Refresh(DeviceStatusFrame? frame = null)
+    {
+        frame ??= Device is null ? null : Store.Get(Device.Id);
+        if (frame?.Payload.TryGetValue("rotators", out var raw) == true && raw is System.Collections.IEnumerable rotators)
+        {
+            // Lock to physical Rotator 1. Note: RotatorDevice sets Number = i (0-based)
+            // but names the rotator "Rotator {i+1}" — so Rotator 1 has Number == 0.
+            foreach (var r in rotators)
+            {
+                var t = r?.GetType();
+                var num = t?.GetProperty("Number")?.GetValue(r) as int?;
+                if (num != 0) continue;
+
+                var az = t?.GetProperty("Azimuth")?.GetValue(r) as int?;
+                var tg = t?.GetProperty("Target")?.GetValue(r) as int?;
+                if (az is int a && a != 999) Azimuth = a;
+                TargetAz = tg is int tv && tv != 999 ? tv : null;
+                break;
+            }
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnSelectTarget(int azimuth)
+    {
+        TargetAz = azimuth;
+        if (Device is not null)
+        {
+            await Store.ExecuteAsync(new DeviceCommand(
+                Device.Id, "rotateTo",
+                new Dictionary<string, object?> { ["azimuth"] = azimuth }));
+        }
+    }
+
+    private Task GoCw() => Device is null
+        ? Task.CompletedTask
+        : Store.ExecuteAsync(new DeviceCommand(Device.Id, "cw"));
+
+    private Task GoCcw() => Device is null
+        ? Task.CompletedTask
+        : Store.ExecuteAsync(new DeviceCommand(Device.Id, "ccw"));
+
+    private Task Stop() => Device is null
+        ? Task.CompletedTask
+        : Store.ExecuteAsync(new DeviceCommand(Device.Id, "stop"));
+}
