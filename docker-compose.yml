@@ -1,0 +1,36 @@
+# GeniusOnline — Docker Compose
+#
+# UDP device discovery (AntennaGenius, PowerGenius, TunerGenius) needs to
+# broadcast on the LAN. Docker's default bridge network drops broadcast,
+# so this service runs with `network_mode: host`. That binds directly to
+# the host's network stack and exposes the app on http://<host>:9050
+# without any `ports:` mapping.
+#
+# Linux only (Mac/Windows Docker Desktop don't fully support host mode).
+# For non-Linux hosts: switch to a `macvlan` network or run with explicit
+# device IPs in Settings (no discovery).
+#
+# Build context is the parent directory because the device adapter projects
+# reference sibling FlexRadio Genius repos via ..\..\..\ relative paths.
+
+services:
+  geniusonline:
+    image: geniusonline:latest
+    container_name: geniusonline
+    build:
+      context: ..
+      dockerfile: GeniusOnline/Dockerfile
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./data:/data
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://0.0.0.0:9050
+      - ConnectionStrings__Default=Data Source=/data/geniusonline.db
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:9050/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
