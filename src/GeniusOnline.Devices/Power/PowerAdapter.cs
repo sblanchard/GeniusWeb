@@ -145,12 +145,19 @@ public sealed class PowerAdapter : DeviceAdapterBase
                 s.Temperature, s.HarmonicTemperature, s.Operate, s.BandA, s.Error);
         }
 
+        // pglib returns PeakPWR=35 and PeakSWR=30 as idle-state sentinels when neither
+        // PTT is active (see pglib/Device.cs lines 452/458). Convert those to 0/1.0 for display.
+        var transmitting = s.PTTA || s.PTTB;
+        var pwr = transmitting ? (double)s.PeakPWR : 0.0;
+        var swr = transmitting ? Math.Max(1.0, (double)s.PeakSWR) : 1.0;
+
         var payload = new Dictionary<string, object?>
         {
             ["operate"] = s.Operate,
-            ["forwardW"] = (double)s.PeakPWR,
-            // Device reports SWR as -60dB (return loss sentinel) when no RF — clamp to 1.0 for display.
-            ["swr"] = s.PeakSWR < 1m ? 1.0 : (double)s.PeakSWR,
+            ["serial"] = _client.SerialNumber,
+            ["firmware"] = _client.Version?.ToString(),
+            ["forwardW"] = pwr,
+            ["swr"] = swr,
             ["voltage"] = (double)s.Voltage,
             ["voltageAC"] = (double)s.VoltageAC,
             ["current"] = (double)s.Current,

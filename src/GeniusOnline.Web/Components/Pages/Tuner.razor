@@ -32,9 +32,11 @@ else
             <Knob Label="C2" Value="@Cv2" />
 
             <div class="action-col">
-                <button class="dev-btn @(!Operate ? "active" : "")" @onclick="() => SetOperate(false)">STBY</button>
-                <button class="dev-btn @(Bypass ? "active" : "")" @onclick="DoBypass">BYP</button>
-                <button class="dev-btn primary @(Tuning ? "active" : "")" @onclick="DoTune">TUNE</button>
+                <button type="button" class="dev-btn @(!Operate ? "active" : "")" @onclick="ToggleOperate">
+                    @(Operate ? "STBY" : "OPR")
+                </button>
+                <button type="button" class="dev-btn @(Bypass ? "active" : "")" @onclick="DoBypass">BYP</button>
+                <button type="button" class="dev-btn primary @(Tuning ? "active" : "")" @onclick="DoTune">TUNE</button>
             </div>
         </div>
 
@@ -169,8 +171,8 @@ else
         ? Task.CompletedTask
         : Store.ExecuteAsync(new DeviceCommand(Device.Id, "bypass",
             new Dictionary<string, object?> { ["on"] = !Bypass }));
-    private Task SetOperate(bool on) => Device is null
+    private Task ToggleOperate() => Device is null
         ? Task.CompletedTask
         : Store.ExecuteAsync(new DeviceCommand(Device.Id, "operate",
-            new Dictionary<string, object?> { ["on"] = on }));
+            new Dictionary<string, object?> { ["on"] = !Operate }));
 }

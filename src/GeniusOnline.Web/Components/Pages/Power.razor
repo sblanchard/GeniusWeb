@@ -39,15 +39,15 @@ else
         {
             <div class="pgxl-fault">
                 <span>FAULT: @Fault</span>
-                <button class="dev-btn" @onclick="ClearFault">Clear</button>
+                <button type="button" class="dev-btn" @onclick="ClearFault">Clear</button>
             </div>
         }
 
         <div class="dev-footer">
-            <span>S/N: —</span>
-            <span>FW: —</span>
+            <span>S/N: @(string.IsNullOrEmpty(Serial) ? "—" : Serial)</span>
+            <span>FW: @(string.IsNullOrEmpty(Firmware) ? "—" : Firmware)</span>
             <span>IP: @(Device.Address ?? "—")</span>
-            <button class="dev-btn primary @(Operate ? "active" : "")" @onclick="ToggleOperate">OPERATE</button>
+            <button type="button" class="dev-btn primary @(Operate ? "active" : "")" @onclick="ToggleOperate">OPERATE</button>
         </div>
     </div>
 }
@@ -120,7 +120,7 @@ else
     private bool Operate, PttA, PttB;
     private string BandA = "—", BandB = "—";
     private double FreqA, FreqB;
-    private string? FlexA, FlexB, Fault;
+    private string? FlexA, FlexB, Fault, Serial, Firmware;
 
     protected override void OnInitialized()
     {
@@ -160,6 +160,8 @@ else
         FlexA = AsS(p, "flexA");
         FlexB = AsS(p, "flexB");
         Fault = AsNullableS(p, "fault");
+        Serial = AsNullableS(p, "serial");
+        Firmware = AsNullableS(p, "firmware");
 
         InvokeAsync(StateHasChanged);
     }

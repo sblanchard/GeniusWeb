@@ -20,6 +20,17 @@ public sealed class TunerAdapter : DeviceAdapterBase
         : base(identity)
     {
         _logger = logger;
+
+        // The TgLib's IsCompatable check requires AppVersion.Major/Minor to match the
+        // device firmware exactly. The default (assembly version 1.0.0.0) will fail
+        // against a 1.2.x firmware, the worker exits after one loop, the socket gets
+        // closed, and every command NREs inside SendMessage.
+        // Pin to 1.2.0.0 by default (current TGXL firmware family); discovery refines
+        // this from the live device when used.
+        if (TgDevice.AppVersion is null || TgDevice.AppVersion.Major != 1 || TgDevice.AppVersion.Minor != 2)
+        {
+            TgDevice.AppVersion = new Version(1, 2, 0, 0);
+        }
     }
 
     public override async Task ConnectAsync(CancellationToken ct = default)
@@ -41,6 +52,18 @@ public sealed class TunerAdapter : DeviceAdapterBase
             address = info.Address;
             // info.Port is hardcoded to 9010 (UDP discovery). The TCP control port is 9009.
             port = (Identity.Port is int p && p > 0) ? p : DefaultPort;
+
+            // Match the firmware's Major.Minor on TgDevice.AppVersion, otherwise
+            // the lib's IsCompatable check fails, the worker exits after one loop,
+            // and Client gets closed while Status remains Connected — every command
+            // then NREs inside the lib's SendMessage.
+            if (info.Version is not null)
+            {
+                TgDevice.AppVersion = new Version(info.Version.Major, info.Version.Minor, 0, 0);
+                _logger.LogInformation("Tuner {Id} firmware {FW}; pinning AppVersion to {App}",
+                    Identity.Id, info.Version, TgDevice.AppVersion);
+            }
+
             _logger.LogInformation("Tuner {Id} discovered at {Host}:{Port} ({Name})",
                 Identity.Id, address, port, info.Name);
             State = DeviceConnectionState.Connecting;
@@ -100,30 +123,49 @@ public sealed class TunerAdapter : DeviceAdapterBase
     public override Task<DeviceCommandResult> ExecuteAsync(DeviceCommand command, CancellationToken ct = default)
     {
         if (_device is null || !_device.Connected)
+        {
+            _logger.LogWarning("Tuner {Id}: rejecting {Verb} — adapter not connected", Identity.Id, command.Verb);
             return Task.FromResult(new DeviceCommandResult(false, "Tuner adapter is not connected"));
+        }
+
+        _logger.LogInformation("Tuner {Id}: dispatching {Verb}", Identity.Id, command.Verb);
 
         try
         {
+            SkySat.Signature4O3A.TunerGenius.Client.ResponseData? r = null;
             switch (command.Verb)
             {
                 case "tune":
-                    _device.Autotune();
-                    return Task.FromResult(new DeviceCommandResult(true));
+                    r = _device.Autotune();
+                    break;
                 case "bypass":
-                    _device.SetBypass(AsBoolDefault(command.Args, "on", true));
-                    return Task.FromResult(new DeviceCommandResult(true));
+                    r = _device.SetBypass(AsBoolDefault(command.Args, "on", true));
+                    break;
                 case "operate":
-                    _device.SetOperate(AsBoolDefault(command.Args, "on", true));
-                    return Task.FromResult(new DeviceCommandResult(true));
+                    r = _device.SetOperate(AsBoolDefault(command.Args, "on", true));
+                    break;
                 case "activate":
-                    _device.Activate(AsInt(command.Args, "channel", 1));
-                    return Task.FromResult(new DeviceCommandResult(true));
+                    r = _device.Activate(AsInt(command.Args, "channel", 1));
+                    break;
                 case "selectAntenna":
-                    _device.SetAntenna(AsInt(command.Args, "antenna", 0));
-                    return Task.FromResult(new DeviceCommandResult(true));
+                    r = _device.SetAntenna(AsInt(command.Args, "antenna", 0));
+                    break;
                 default:
                     return Task.FromResult(new DeviceCommandResult(false, $"Unknown verb '{command.Verb}'"));
             }
+
+            if (r is null)
+            {
+                _logger.LogWarning("Tuner {Id}: {Verb} returned no response", Identity.Id, command.Verb);
+                return Task.FromResult(new DeviceCommandResult(false, "Device returned no response"));
+            }
+
+            _logger.LogInformation("Tuner {Id}: {Verb} → ErrorCode={Err} Data={Data}",
+                Identity.Id, command.Verb, r.ErrorCode, r.Data ?? "");
+
+            return Task.FromResult(r.ErrorCode == 0
+                ? new DeviceCommandResult(true)
+                : new DeviceCommandResult(false, $"Device error {r.ErrorCode}"));
         }
         catch (Exception ex)
         {
@@ -142,15 +184,22 @@ public sealed class TunerAdapter : DeviceAdapterBase
     {
         if (_device is null) return;
         var s = _device.Status;
+
+        // Idle sentinels: device reports a noise-floor watt count and -60dB return loss
+        // when no RF is present. Hide them — match the desktop UI's behaviour.
+        var transmitting = s.PTTA || s.PTTB;
+        var pwr = transmitting ? (double)s.FWD : 0.0;
+        var swr = transmitting ? Math.Max(1.0, (double)s.SWR) : 1.0;
+
         var payload = new Dictionary<string, object?>
         {
             ["operate"] = s.Operate,
             ["tuning"] = s.Tuning,
             ["bypass"] = s.Bypass,
-            ["forwardW"] = (double)s.FWD,
-            ["forwardPeakW"] = (double)s.FWD_Peak,
-            ["swrIn"] = (double)s.SWR,
-            ["swrOut"] = (double)s.SWR,
+            ["forwardW"] = pwr,
+            ["forwardPeakW"] = transmitting ? (double)s.FWD_Peak : 0.0,
+            ["swrIn"] = swr,
+            ["swrOut"] = swr,
             ["bandA"] = s.BandA.ToString(),
             ["bandB"] = s.BandB.ToString(),
             ["freqA"] = (double)s.FreqA,
