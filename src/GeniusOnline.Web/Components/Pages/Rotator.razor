@@ -25,17 +25,24 @@ else
                 <circle r="40"  fill="none" stroke="#3a6f95" stroke-width="0.5" />
                 <circle r="20"  fill="none" stroke="#3a6f95" stroke-width="0.5" />
 
-                @* 30° ticks with labels *@
+                @* Minor ticks every 10°, short and only on the outer rim — no overlap with labels *@
+                @foreach (var deg in Enumerable.Range(0, 36).Select(i => i * 10))
+                {
+                    if (deg % 30 == 0) continue; // skip positions where labels live
+                    var rad = (deg - 90) * Math.PI / 180.0;
+                    var inner = (Math.Cos(rad) * 96).ToString("F1");
+                    var innerY = (Math.Sin(rad) * 96).ToString("F1");
+                    var outer = (Math.Cos(rad) * 100).ToString("F1");
+                    var outerY = (Math.Sin(rad) * 100).ToString("F1");
+                    <line x1="@inner" y1="@innerY" x2="@outer" y2="@outerY" stroke="#52b788" stroke-width="0.6" opacity="0.5" />
+                }
+
+                @* Major degree labels at every 30° *@
                 @foreach (var deg in Enumerable.Range(0, 12).Select(i => i * 30))
                 {
                     var rad = (deg - 90) * Math.PI / 180.0;
-                    var inner = (Math.Cos(rad) * 86).ToString("F1");
-                    var innerY = (Math.Sin(rad) * 86).ToString("F1");
-                    var outer = (Math.Cos(rad) * 100).ToString("F1");
-                    var outerY = (Math.Sin(rad) * 100).ToString("F1");
                     var labelX = (Math.Cos(rad) * 92).ToString("F1");
                     var labelY = (Math.Sin(rad) * 92 + 3).ToString("F1");
-                    <line x1="@inner" y1="@innerY" x2="@outer" y2="@outerY" stroke="#a8c8e0" stroke-width="1" />
                     @((MarkupString)$"<text x='{labelX}' y='{labelY}' fill='#cfe1f0' font-size='8' text-anchor='middle'>{deg}</text>")
                 }
 
@@ -106,7 +113,7 @@ else
         font-size: 13px;
         color: #a8c8e0;
     }
-    .rg-tab strong { color: #4ea8de; margin-left: 6px; font-size: 16px; }
+    .rg-tab strong { color: #52b788; margin-left: 6px; font-size: 16px; }
     .rg-canvas {
         background: #0d1727;
         padding: 12px;
@@ -131,9 +138,9 @@ else
         cursor: pointer;
         border-radius: 4px;
     }
-    .rg-btn:hover { background: #284070; }
-    .rg-btn.rg-go { background: #4ea8de; color: #0d1727; border-color: #4ea8de; font-weight: 800; }
-    .rg-btn.rg-go:hover { background: #6cb8e6; }
+    .rg-btn:hover { background: #1f3a3a; border-color: #52b788; color: #fff; }
+    .rg-btn.rg-go { background: #52b788; color: #0d1727; border-color: #52b788; font-weight: 800; }
+    .rg-btn.rg-go:hover { background: #6dc99a; border-color: #6dc99a; }
     .rg-arr { font-size: 12px; }
     .rg-presets {
         display: grid;
@@ -150,7 +157,7 @@ else
         cursor: pointer;
         border-radius: 3px;
     }
-    .rg-preset:hover { background: #284070; color: #fff; }
+    .rg-preset:hover { background: #1f3a3a; border-color: #52b788; color: #fff; }
     .dev-empty { padding: 16px; text-align: center; color: #888; }
 </style>
 

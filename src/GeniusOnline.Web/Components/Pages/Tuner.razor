@@ -17,7 +17,7 @@ else
         <div class="dev-section">
             <BarMeter Label="PWR" Value="@Forward" Max="200" Palette="power"
                       Ticks="@(new []{"0","50","100","175","200"})" />
-            <BarMeter Label="SWR" Value="@Swr" Max="3" Format="F2" Palette="swr"
+            <BarMeter Label="SWR" Value="@Swr" Min="1" Max="3" Format="F2" Palette="swr"
                       Ticks="@(new []{"1.0","1.5","2.0","2.5","3.0"})" />
         </div>
 

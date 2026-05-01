@@ -55,6 +55,7 @@
 @code {
     [Parameter] public string Label { get; set; } = "";
     [Parameter] public double Value { get; set; }
+    [Parameter] public double Min { get; set; } = 0;
     [Parameter] public double Max { get; set; } = 100;
     [Parameter] public string Format { get; set; } = "F0";
     [Parameter] public IReadOnlyList<string> Ticks { get; set; } = Array.Empty<string>();
@@ -66,7 +67,8 @@
     {
         get
         {
-            var pct = Math.Max(0, Math.Min(100, Value / Max * 100));
+            var span = Max - Min;
+            var pct = span <= 0 ? 0 : Math.Max(0, Math.Min(100, (Value - Min) / span * 100));
             var grad = Palette switch
             {
                 "swr" => "linear-gradient(90deg, #1a4d1a 0%, #2e7a2e 30%, #d4a017 55%, #b06b1f 70%, #8b1f1f 90%)",
