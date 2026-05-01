@@ -1,13 +1,13 @@
 **/bin
 **/obj
 **/.vs
+**/.vscode
 **/node_modules
 **/*.user
-**/.vscode
 **/*.log
 publish/
 data/
-docker-compose.yml
 *.db
 *.db-shm
 *.db-wal
+.git

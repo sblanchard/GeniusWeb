@@ -10,7 +10,13 @@ Mobile-friendly web control panel for FlexRadio Genius accessories — RotatorGe
 - **Persistence**: SQLite via EF Core
 - **Auth**: cookie auth + single-password gate (PBKDF2-SHA256)
 
-The four existing device class libraries (`RotatorGenius.Communication`, `AntennaGenius.Core`, `PowerGenius.Core`, `TunerGenius.TgLib`) are referenced as project dependencies — no fork.
+The four FlexRadio Genius client libraries (`RotatorGenius.Communication`, `AntennaGenius.Core`, `PowerGenius.Core`, `TunerGenius.TgLib`) live under `vendor/` as **git submodules**. Clone with:
+
+```bash
+git clone --recurse-submodules https://github.com/sblanchard/GeniusOnline.git
+# or after a normal clone
+git submodule update --init --recursive
+```
 
 ## Solution layout
 
@@ -82,12 +88,15 @@ dotnet test
 
 ## Deploy
 
-### Docker
+### Docker / Compose
 
 ```bash
-docker build -t geniusonline:latest .
-docker run -d --name geniusonline -p 9050:9050 -v gu_data:/data geniusonline:latest
+git clone --recurse-submodules https://github.com/sblanchard/GeniusOnline.git
+cd GeniusOnline
+docker compose up -d --build
 ```
+
+The compose file uses `network_mode: host` so UDP device discovery works on the LAN — Docker's bridge network silently drops broadcasts. SQLite db lives in `./data/` next to the compose file.
 
 ### systemd (e.g. on a Raspberry Pi at the shack)
 

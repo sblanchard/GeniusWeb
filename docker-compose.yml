@@ -1,25 +1,28 @@
 # GeniusOnline — Docker Compose
 #
-# UDP device discovery (AntennaGenius, PowerGenius, TunerGenius) needs to
-# broadcast on the LAN. Docker's default bridge network drops broadcast,
-# so this service runs with `network_mode: host`. That binds directly to
-# the host's network stack and exposes the app on http://<host>:9050
-# without any `ports:` mapping.
+# UDP device discovery (AntennaGenius / PowerGenius / TunerGenius)
+# broadcasts on the LAN, so the service runs with `network_mode: host`.
+# Docker's default bridge drops broadcast packets. Host mode binds
+# directly to the host's network stack and exposes the app on
+# http://<host>:9050 — no `ports:` mapping needed.
 #
-# Linux only (Mac/Windows Docker Desktop don't fully support host mode).
-# For non-Linux hosts: switch to a `macvlan` network or run with explicit
-# device IPs in Settings (no discovery).
+# Linux only. On macOS / Windows Docker Desktop, host mode isn't fully
+# supported. Use a `macvlan` network or configure explicit device IPs
+# in the Settings page (no discovery).
 #
-# Build context is the parent directory because the device adapter projects
-# reference sibling FlexRadio Genius repos via ..\..\..\ relative paths.
+# This repo bundles the four FlexRadio Genius client libraries as git
+# submodules under vendor/. Clone with:
+#     git clone --recurse-submodules <repo>
+# or, after a normal clone:
+#     git submodule update --init --recursive
 
 services:
   geniusonline:
     image: geniusonline:latest
     container_name: geniusonline
     build:
-      context: ..
-      dockerfile: GeniusOnline/Dockerfile
+      context: .
+      dockerfile: Dockerfile
     network_mode: host
     restart: unless-stopped
     volumes:

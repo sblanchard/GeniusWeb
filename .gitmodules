@@ -1,0 +1,12 @@
+[submodule "vendor/RotatorGenius"]
+	path = vendor/RotatorGenius
+	url = https://github.com/sblanchard/RotatorGenius.git
+[submodule "vendor/AntennaGenius"]
+	path = vendor/AntennaGenius
+	url = https://github.com/sblanchard/AntennaGenius.git
+[submodule "vendor/PowerGenius"]
+	path = vendor/PowerGenius
+	url = https://github.com/sblanchard/PowerGenius.git
+[submodule "vendor/TunerGenius"]
+	path = vendor/TunerGenius
+	url = https://github.com/sblanchard/TunerGenius.git

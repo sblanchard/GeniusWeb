@@ -1,10 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\RotatorGenius\src\RotatorGenius.Communication\RotatorGenius.Communication.csproj" />
-    <ProjectReference Include="..\..\..\AntennaGenius\src\AntennaGenius.Core\AntennaGenius.Core.csproj" />
-    <ProjectReference Include="..\..\..\PowerGenius\src\PowerGenius.Core\PowerGenius.Core.csproj" />
-    <ProjectReference Include="..\..\..\TunerGenius\src\TunerGenius.TgLib\TunerGenius.TgLib.csproj" />
+    <ProjectReference Include="..\..\vendor\RotatorGenius\src\RotatorGenius.Communication\RotatorGenius.Communication.csproj" />
+    <ProjectReference Include="..\..\vendor\AntennaGenius\src\AntennaGenius.Core\AntennaGenius.Core.csproj" />
+    <ProjectReference Include="..\..\vendor\PowerGenius\src\PowerGenius.Core\PowerGenius.Core.csproj" />
+    <ProjectReference Include="..\..\vendor\TunerGenius\src\TunerGenius.TgLib\TunerGenius.TgLib.csproj" />
     <ProjectReference Include="..\GeniusOnline.Contracts\GeniusOnline.Contracts.csproj" />
   </ItemGroup>
 

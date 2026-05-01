@@ -1,15 +1,13 @@
-# Multi-stage build. Build context MUST be the parent directory containing
-# both GeniusOnline/ and the four sibling FlexRadio Genius repos that are
-# referenced via ..\..\..\ project paths. docker-compose handles this with
-# `build.context: ..`.
+# Self-contained build. Repo includes the four FlexRadio Genius client
+# libraries as git submodules under vendor/, so build context = repo root.
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY . .
 
-RUN dotnet restore GeniusOnline/GeniusOnline.slnx
-RUN dotnet publish GeniusOnline/src/GeniusOnline.Web/GeniusOnline.Web.csproj \
+RUN dotnet restore GeniusOnline.slnx
+RUN dotnet publish src/GeniusOnline.Web/GeniusOnline.Web.csproj \
     -c Release -o /app/publish \
     --no-restore /p:UseAppHost=false
 
