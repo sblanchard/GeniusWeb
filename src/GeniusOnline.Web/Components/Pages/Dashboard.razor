@@ -1,6 +1,7 @@
 @page "/"
 @attribute [Authorize]
 @inject GeniusOnline.Web.Services.DeviceLiveStore Store
+@inject GeniusOnline.Devices.DeviceRegistryHost RegistryHost
 @implements IDisposable
 
 <PageTitle>Dashboard — GeniusOnline</PageTitle>
@@ -30,10 +31,28 @@ else
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">
                         @dev.Kind · @(dev.Address ?? "(no address)")
                     </MudText>
-                    <MudButton Variant="Variant.Text" Color="Color.Primary"
-                               Href="@($"/{dev.Kind.ToString().ToLowerInvariant()}")" Class="mt-2">
-                        Open
-                    </MudButton>
+                    <div class="d-flex gap-2 mt-2">
+                        <MudButton Variant="Variant.Text" Color="Color.Primary"
+                                   Href="@($"/{dev.Kind.ToString().ToLowerInvariant()}")">
+                            Open
+                        </MudButton>
+                        @if (IsConnectedish(frame?.Connection))
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.LinkOff"
+                                       OnClick="() => DisconnectDevice(dev.Id)">
+                                Disconnect
+                            </MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Link"
+                                       OnClick="() => ReconnectDevice(dev.Id)">
+                                Reconnect
+                            </MudButton>
+                        }
+                    </div>
                 </MudPaper>
             </MudItem>
         }
@@ -52,4 +71,12 @@ else
         DeviceConnectionState.Faulted => MudBlazor.Color.Error,
         _ => MudBlazor.Color.Default,
     };
+
+    private static bool IsConnectedish(DeviceConnectionState? state)
+        => state is DeviceConnectionState.Connected
+                 or DeviceConnectionState.Connecting
+                 or DeviceConnectionState.Discovering;
+
+    private Task DisconnectDevice(string id) => RegistryHost.DisconnectAsync(id);
+    private Task ReconnectDevice(string id) => RegistryHost.ReconnectAsync(id);
 }

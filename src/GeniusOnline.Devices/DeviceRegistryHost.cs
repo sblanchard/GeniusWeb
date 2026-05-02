@@ -91,6 +91,51 @@ public sealed class DeviceRegistryHost : BackgroundService
         }
     }
 
+    /// <summary>Stop the adapter's connect-retry loop and disconnect it. Adapter stays registered.</summary>
+    public async Task DisconnectAsync(string deviceId, CancellationToken ct = default)
+    {
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (_adapterLifetimes.TryGetValue(deviceId, out var cts))
+            {
+                cts.Cancel();
+                cts.Dispose();
+                _adapterLifetimes.Remove(deviceId);
+            }
+            var adapter = _registry.Get(deviceId);
+            if (adapter is not null)
+            {
+                try { await adapter.DisconnectAsync(ct).ConfigureAwait(false); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Disconnect error for {Id}", deviceId); }
+            }
+        }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>Restart the connect-retry loop for an already-registered adapter.</summary>
+    public async Task ReconnectAsync(string deviceId, CancellationToken ct = default)
+    {
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var adapter = _registry.Get(deviceId);
+            if (adapter is null) return;
+
+            if (_adapterLifetimes.TryGetValue(deviceId, out var existing))
+            {
+                existing.Cancel();
+                existing.Dispose();
+                _adapterLifetimes.Remove(deviceId);
+            }
+
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(_hostStopping);
+            _adapterLifetimes[deviceId] = cts;
+            _ = ConnectWithRetryAsync(adapter, cts.Token);
+        }
+        finally { _gate.Release(); }
+    }
+
     private static bool SameConfig(DeviceIdentity i, DeviceConfig c)
         => i.Kind == c.Kind
            && string.Equals(i.DisplayName, c.DisplayName, StringComparison.Ordinal)
