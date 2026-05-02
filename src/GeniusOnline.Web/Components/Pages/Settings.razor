@@ -25,14 +25,16 @@
             <div class="dev-row">
                 <MudCheckBox @bind-Value="d.Enabled" Class="dev-enabled" />
                 <MudTextField @bind-Value="d.DisplayName" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" Class="dev-name" />
-                <MudSelect @bind-Value="d.Kind" Label="Kind" Variant="Variant.Outlined" Margin="Margin.Dense" Class="dev-kind">
+                <MudSelect T="DeviceKind" Value="d.Kind" ValueChanged="@(k => OnKindChanged(d, k))"
+                           Label="Kind" Variant="Variant.Outlined" Margin="Margin.Dense" Class="dev-kind">
                     <MudSelectItem Value="@DeviceKind.Rotator">Rotator</MudSelectItem>
                     <MudSelectItem Value="@DeviceKind.Antenna">Antenna</MudSelectItem>
                     <MudSelectItem Value="@DeviceKind.Power">Power</MudSelectItem>
                     <MudSelectItem Value="@DeviceKind.Tuner">Tuner</MudSelectItem>
                 </MudSelect>
                 <MudTextField @bind-Value="d.Address" Label="Address (or 'auto')" Variant="Variant.Outlined" Margin="Margin.Dense" Class="dev-addr" />
-                <MudNumericField @bind-Value="d.Port" Label="Port" Variant="Variant.Outlined" Margin="Margin.Dense" Class="dev-port" />
+                <MudNumericField @bind-Value="d.Port" Label="@($"Port (default {DefaultPort(d.Kind)})")"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Class="dev-port" />
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="() => Devices!.Remove(d)" />
             </div>
         }
@@ -124,14 +126,32 @@
 
     private void AddDevice()
     {
+        var kind = DeviceKind.Rotator;
         Devices?.Add(new DeviceRow
         {
             Id = $"dev-{Guid.NewGuid().ToString("N")[..8]}",
             DisplayName = "New Device",
-            Kind = DeviceKind.Rotator,
+            Kind = kind,
             Address = "auto",
-            Port = null,
+            Port = DefaultPort(kind),
         });
+    }
+
+    private static int DefaultPort(DeviceKind kind) => kind switch
+    {
+        DeviceKind.Rotator => 9006,
+        DeviceKind.Antenna => 9007,
+        DeviceKind.Power   => 9007,
+        DeviceKind.Tuner   => 9009,
+        _ => 0,
+    };
+
+    private static void OnKindChanged(DeviceRow row, DeviceKind newKind)
+    {
+        var prevDefault = DefaultPort(row.Kind);
+        row.Kind = newKind;
+        if (row.Port is null || row.Port == prevDefault)
+            row.Port = DefaultPort(newKind);
     }
 
     private async Task SaveDevices()
