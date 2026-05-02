@@ -35,6 +35,7 @@ public sealed class TunerAdapter : DeviceAdapterBase
 
     public override async Task ConnectAsync(CancellationToken ct = default)
     {
+        MarkRunning();
         State = DeviceConnectionState.Connecting;
 
         var address = Identity.Address;
@@ -116,6 +117,11 @@ public sealed class TunerAdapter : DeviceAdapterBase
 
     public override Task DisconnectAsync(CancellationToken ct = default)
     {
+        MarkStopped();
+        // TgDevice has no public Disconnect — null the reference so OnStatus/OnConnected
+        // callbacks from the orphaned worker short-circuit, and the next ConnectAsync
+        // creates a fresh client.
+        _device = null;
         State = DeviceConnectionState.Disconnected;
         return Task.CompletedTask;
     }

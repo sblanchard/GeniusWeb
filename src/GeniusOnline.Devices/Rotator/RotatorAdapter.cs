@@ -27,6 +27,7 @@ public sealed class RotatorAdapter : DeviceAdapterBase
 
     public override async Task ConnectAsync(CancellationToken ct = default)
     {
+        MarkRunning();
         if (State == DeviceConnectionState.Connected) return;
         State = DeviceConnectionState.Connecting;
 
@@ -45,8 +46,10 @@ public sealed class RotatorAdapter : DeviceAdapterBase
 
     public override Task DisconnectAsync(CancellationToken ct = default)
     {
+        MarkStopped();
+        try { _device.Disconnect(); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Rotator {Id} disconnect", Identity.Id); }
         State = DeviceConnectionState.Disconnected;
-        // RotatorDevice doesn't expose a disconnect — relies on dispose semantics in lib.
         return Task.CompletedTask;
     }
 
@@ -96,6 +99,7 @@ public sealed class RotatorAdapter : DeviceAdapterBase
 
     private void OnDataReceived(object? sender, RotatorDataEventArgs e)
     {
+        if (IsStopped) return;
         var payload = new Dictionary<string, object?>
         {
             ["isRotating"] = _device.IsRotating,

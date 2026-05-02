@@ -22,6 +22,7 @@ public sealed class PowerAdapter : DeviceAdapterBase
 
     public override async Task ConnectAsync(CancellationToken ct = default)
     {
+        MarkRunning();
         State = DeviceConnectionState.Connecting;
 
         var address = Identity.Address;
@@ -88,6 +89,7 @@ public sealed class PowerAdapter : DeviceAdapterBase
 
     public override Task DisconnectAsync(CancellationToken ct = default)
     {
+        MarkStopped();
         try { _client?.Disconnect(); }
         catch (Exception ex) { _logger.LogWarning(ex, "Power {Id} disconnect", Identity.Id); }
         State = DeviceConnectionState.Disconnected;
@@ -133,7 +135,7 @@ public sealed class PowerAdapter : DeviceAdapterBase
 
     private void OnStatusUpdated(object? sender, EventArgs e)
     {
-        if (_client is null) return;
+        if (_client is null || IsStopped) return;
         var s = _client.Status;
 
         if (!_loggedFirstStatus)

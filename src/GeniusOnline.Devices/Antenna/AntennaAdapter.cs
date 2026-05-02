@@ -28,6 +28,7 @@ public sealed class AntennaAdapter : DeviceAdapterBase
 
     public override async Task ConnectAsync(CancellationToken ct = default)
     {
+        MarkRunning();
         State = DeviceConnectionState.Connecting;
 
         string host;
@@ -91,6 +92,7 @@ public sealed class AntennaAdapter : DeviceAdapterBase
 
     public override async Task DisconnectAsync(CancellationToken ct = default)
     {
+        MarkStopped();
         await _service.DisconnectAsync().ConfigureAwait(false);
         State = DeviceConnectionState.Disconnected;
     }
