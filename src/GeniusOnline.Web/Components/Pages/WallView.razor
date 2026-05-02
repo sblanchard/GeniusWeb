@@ -2,8 +2,6 @@
 @attribute [Authorize]
 @layout EmptyLayout
 
-<PageTitle>GeniusOnline</PageTitle>
-
 <div class="console-shell">
     <header class="console-bar">
         <div class="brand">GeniusOnline · Console</div>
@@ -32,6 +30,9 @@
         </div>
     </div>
 </div>
+
+@* Rendered after children so it overrides per-page <PageTitle> set by embedded components. *@
+<PageTitle>GeniusOnline</PageTitle>
 
 <style>
     body { background: #0a0a0a; }
