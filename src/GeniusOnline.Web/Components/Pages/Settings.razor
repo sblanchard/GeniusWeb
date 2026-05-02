@@ -119,7 +119,7 @@
             DisplayName = d.DisplayName,
             Kind = d.Kind,
             Address = d.Address,
-            Port = d.Port,
+            Port = d.Port ?? DefaultPort(d.Kind),
             Enabled = true,
         }).ToList();
     }
