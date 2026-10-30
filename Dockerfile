@@ -6,8 +6,8 @@ WORKDIR /src
 
 COPY . .
 
-RUN dotnet restore GeniusOnline.slnx
-RUN dotnet publish src/GeniusOnline.Web/GeniusOnline.Web.csproj \
+RUN dotnet restore GeniusWeb.slnx
+RUN dotnet publish src/GeniusWeb.Web/GeniusWeb.Web.csproj \
     -c Release -o /app/publish \
     --no-restore /p:UseAppHost=false
 
@@ -16,11 +16,11 @@ WORKDIR /app
 
 ENV ASPNETCORE_URLS=http://0.0.0.0:9050
 ENV ASPNETCORE_ENVIRONMENT=Production
-ENV ConnectionStrings__Default="Data Source=/data/geniusonline.db"
+ENV ConnectionStrings__Default="Data Source=/data/geniusweb.db"
 
 COPY --from=build /app/publish .
 
 EXPOSE 9050
 VOLUME ["/data"]
 
-ENTRYPOINT ["dotnet", "GeniusOnline.Web.dll"]
+ENTRYPOINT ["dotnet", "GeniusWeb.Web.dll"]

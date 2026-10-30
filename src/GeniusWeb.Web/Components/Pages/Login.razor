@@ -1,0 +1,121 @@
+@page "/login"
+@layout EmptyLayout
+@attribute [AllowAnonymous]
+@using Microsoft.AspNetCore.Authorization
+
+<PageTitle>Sign in — GeniusWeb</PageTitle>
+
+<div class="login-shell">
+    <div class="login-card">
+        <h1>GeniusWeb</h1>
+
+        <form method="post" action="/login/submit">
+            <input type="hidden" name="returnUrl" value="@(ReturnUrl ?? "/")" />
+
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password"
+                   autocomplete="current-password" autofocus required />
+
+            <label class="remember">
+                <input name="rememberMe" type="checkbox" value="true" />
+                <span>Remember this device</span>
+            </label>
+
+            @if (!string.IsNullOrEmpty(Error))
+            {
+                <div class="error">@Error</div>
+            }
+
+            <button type="submit" class="primary">Sign in</button>
+        </form>
+    </div>
+</div>
+
+<style>
+    .login-shell {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        background: linear-gradient(180deg, #0d0d0d 0%, #1a1a1a 100%);
+        color: #e6e6e6;
+        font-family: 'Inter', system-ui, sans-serif;
+    }
+
+    .login-card {
+        width: 100%;
+        max-width: 420px;
+        padding: 28px;
+        background: #1f1f1f;
+        border-radius: 12px;
+        box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+    }
+
+    .login-card h1 {
+        margin: 0 0 20px;
+        font-size: 22px;
+        font-weight: 600;
+    }
+
+    .login-card label {
+        display: block;
+        font-size: 13px;
+        margin: 4px 0;
+        color: #aaa;
+    }
+
+    .login-card input[type=password] {
+        width: 100%;
+        padding: 12px 14px;
+        font-size: 16px;
+        background: #2a2a2a;
+        border: 1px solid #444;
+        border-radius: 8px;
+        color: #fff;
+        box-sizing: border-box;
+    }
+
+    .login-card input[type=password]:focus {
+        outline: none;
+        border-color: #4ea8de;
+    }
+
+    .login-card .remember {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 14px 0;
+        font-size: 14px;
+        color: #ccc;
+    }
+
+    .login-card button.primary {
+        width: 100%;
+        padding: 14px;
+        background: #4ea8de;
+        color: #0d1c26;
+        border: 0;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 8px;
+    }
+
+    .login-card button.primary:hover { background: #6cb8e6; }
+
+    .login-card .error {
+        background: #5a1d1d;
+        color: #ffd2d2;
+        padding: 10px 12px;
+        border-radius: 6px;
+        margin: 12px 0;
+        font-size: 14px;
+    }
+</style>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery(Name = "error")] public string? Error { get; set; }
+}
