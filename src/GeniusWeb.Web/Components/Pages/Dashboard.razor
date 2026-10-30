@@ -1,0 +1,82 @@
+@page "/"
+@attribute [Authorize]
+@inject GeniusWeb.Web.Services.DeviceLiveStore Store
+@inject GeniusWeb.Devices.DeviceRegistryHost RegistryHost
+@implements IDisposable
+
+<PageTitle>Dashboard — GeniusWeb</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-3">Devices</MudText>
+
+@if (!Store.KnownDevices.Any())
+{
+    <MudAlert Severity="Severity.Info">
+        No devices configured. Add entries under <code>Devices.Devices</code> in <code>appsettings.json</code>.
+    </MudAlert>
+}
+else
+{
+    <MudGrid Spacing="2">
+        @foreach (var dev in Store.KnownDevices)
+        {
+            var frame = Store.Get(dev.Id);
+            <MudItem xs="12" sm="6">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <div class="d-flex justify-space-between align-center">
+                        <MudText Typo="Typo.subtitle1">@dev.DisplayName</MudText>
+                        <MudChip T="string" Size="Size.Small" Color="@StateColor(frame?.Connection)">
+                            @(frame?.Connection.ToString() ?? "Unknown")
+                        </MudChip>
+                    </div>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        @dev.Kind · @(dev.Address ?? "(no address)")
+                    </MudText>
+                    <div class="d-flex gap-2 mt-2">
+                        <MudButton Variant="Variant.Text" Color="Color.Primary"
+                                   Href="@($"/{dev.Kind.ToString().ToLowerInvariant()}")">
+                            Open
+                        </MudButton>
+                        @if (IsConnectedish(frame?.Connection))
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.LinkOff"
+                                       OnClick="() => DisconnectDevice(dev.Id)">
+                                Disconnect
+                            </MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Link"
+                                       OnClick="() => ReconnectDevice(dev.Id)">
+                                Reconnect
+                            </MudButton>
+                        }
+                    </div>
+                </MudPaper>
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+@code {
+    protected override void OnInitialized() => Store.Updated += OnUpdated;
+    public void Dispose() => Store.Updated -= OnUpdated;
+    private void OnUpdated(object? s, DeviceStatusFrame _) => InvokeAsync(StateHasChanged);
+
+    private MudBlazor.Color StateColor(DeviceConnectionState? state) => state switch
+    {
+        DeviceConnectionState.Connected => MudBlazor.Color.Success,
+        DeviceConnectionState.Connecting or DeviceConnectionState.Discovering => MudBlazor.Color.Warning,
+        DeviceConnectionState.Faulted => MudBlazor.Color.Error,
+        _ => MudBlazor.Color.Default,
+    };
+
+    private static bool IsConnectedish(DeviceConnectionState? state)
+        => state is DeviceConnectionState.Connected
+                 or DeviceConnectionState.Connecting
+                 or DeviceConnectionState.Discovering;
+
+    private Task DisconnectDevice(string id) => RegistryHost.DisconnectAsync(id);
+    private Task ReconnectDevice(string id) => RegistryHost.ReconnectAsync(id);
+}

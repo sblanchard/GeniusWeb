@@ -1,0 +1,214 @@
+@page "/antenna"
+@attribute [Authorize]
+@inject GeniusWeb.Web.Services.DeviceLiveStore Store
+@implements IDisposable
+
+<PageTitle>Antenna</PageTitle>
+
+@if (Device is null)
+{
+    <div class="dev-empty">No antenna switch configured.</div>
+}
+else
+{
+    <div class="ag-shell">
+        <div class="ag-header">
+            <span class="ag-title">AG</span>
+            <span class="ag-meta">FW: @(Firmware ?? "—") &nbsp;·&nbsp; S/N: @(Serial ?? "—")</span>
+        </div>
+
+        @if (Ports.Count == 0)
+        {
+            <div class="dev-empty">Waiting for port info…</div>
+        }
+        else
+        {
+            @foreach (var port in Ports)
+            {
+                <div class="ag-port">
+                    <div class="ag-port-head">
+                        <span class="ag-port-name">Port @((char)('A' + port.Index - 1))</span>
+                        <span class="ag-port-info">
+                            <span class="lbl">Band:</span> <span class="val">@FormatBand(port.Band)</span>
+                            <span class="lbl">Source:</span> <span class="val">@port.Source</span>
+                            <span class="freq">@(port.Frequency > 0 ? $"@ {port.Frequency:F3} MHz" : "")</span>
+                        </span>
+                    </div>
+
+                    @foreach (var ant in Antennas.Where(a => !string.IsNullOrEmpty(a.Name) && a.Name != "None"))
+                    {
+                        var selected = port.RxAntenna == ant.Index || port.TxAntenna == ant.Index;
+                        <button class="ag-ant @(selected ? "selected" : "")"
+                                @onclick="() => Select(port.Index, ant.Index)">
+                            <span>@ant.Name</span>
+                            @if (selected)
+                            {
+                                <span class="rxtx">
+                                    @if (port.RxAntenna == ant.Index) { <span class="rx">RX</span> }
+                                    @if (port.TxAntenna == ant.Index) { <span class="tx">TX</span> }
+                                </span>
+                            }
+                        </button>
+                    }
+                </div>
+            }
+        }
+
+        <div class="ag-footer">
+            <span class="dot @(IsConnected ? "ok" : "")"></span> @(IsConnected ? "Connected" : "Offline")
+        </div>
+    </div>
+}
+
+<style>
+    .ag-shell {
+        background: #0a0a0a;
+        border-radius: 6px;
+        overflow: hidden;
+        max-width: 720px;
+        margin: 0 auto;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        color: #e0e0e0;
+    }
+    .ag-header {
+        display: flex; align-items: baseline; gap: 16px;
+        padding: 10px 16px;
+        background: #1a1a1a;
+        border-bottom: 1px solid #2a2a2a;
+    }
+    .ag-title { font-size: 22px; font-weight: 700; }
+    .ag-meta { color: #888; font-size: 12px; }
+
+    .ag-port { padding: 10px 16px; border-top: 1px solid #1a1a1a; }
+    .ag-port-head {
+        display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+        margin-bottom: 8px;
+    }
+    .ag-port-name { font-size: 16px; font-weight: 700; color: #fff; }
+    .ag-port-info { font-size: 13px; color: #ccc; display: flex; gap: 8px; flex-wrap: wrap; }
+    .ag-port-info .lbl { color: #888; }
+    .ag-port-info .val { color: #4ea8de; font-weight: 600; }
+    .ag-port-info .freq { color: #4ea8de; margin-left: auto; font-family: ui-monospace, monospace; }
+
+    .ag-ant {
+        display: flex; justify-content: space-between; align-items: center;
+        width: 100%;
+        padding: 14px 16px;
+        margin: 4px 0;
+        background: #2a2a2a;
+        color: #ddd;
+        border: 0;
+        border-radius: 4px;
+        font-size: 15px;
+        font-weight: 500;
+        cursor: pointer;
+        text-align: left;
+    }
+    .ag-ant:hover { background: #333; }
+    .ag-ant.selected { background: #2a8a3a; color: #fff; font-weight: 700; }
+    .rxtx { display: flex; gap: 8px; font-size: 12px; }
+    .rxtx .rx { color: #2eea4a; font-weight: 700; }
+    .rxtx .tx { color: #ff5c5c; font-weight: 700; }
+
+    .ag-footer {
+        padding: 8px 16px; background: #111; font-size: 12px; color: #888;
+        display: flex; align-items: center; gap: 8px;
+        border-top: 1px solid #2a2a2a;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #555; }
+    .dot.ok { background: #2eea4a; }
+    .dev-empty { padding: 24px; text-align: center; color: #888; }
+</style>
+
+@code {
+    private record PortVm(int Index, string Name, string Band, double Frequency, string Source, int RxAntenna, int TxAntenna);
+    private record AntVm(int Index, string Name);
+
+    private DeviceIdentity? Device;
+    private DeviceStatusFrame? Frame;
+    private string? Serial, Firmware;
+    private List<PortVm> Ports = new();
+    private List<AntVm> Antennas = new();
+    private bool IsConnected => Frame?.Connection == DeviceConnectionState.Connected;
+
+    protected override void OnInitialized()
+    {
+        Device = Store.KnownDevices.FirstOrDefault(d => d.Kind == DeviceKind.Antenna);
+        Refresh();
+        Store.Updated += OnUpdated;
+    }
+
+    public void Dispose() => Store.Updated -= OnUpdated;
+
+    private void OnUpdated(object? s, DeviceStatusFrame f)
+    {
+        if (Device is not null && f.DeviceId == Device.Id) Refresh(f);
+    }
+
+    private void Refresh(DeviceStatusFrame? frame = null)
+    {
+        Frame = frame ?? (Device is null ? null : Store.Get(Device.Id));
+        if (Frame is null) { InvokeAsync(StateHasChanged); return; }
+
+        var p = Frame.Payload;
+        Serial = p.TryGetValue("serial", out var sn) ? sn?.ToString() : null;
+        Firmware = p.TryGetValue("firmware", out var fw) ? fw?.ToString() : null;
+
+        Ports = new List<PortVm>();
+        if (p.TryGetValue("ports", out var portsRaw) && portsRaw is System.Collections.IEnumerable ports)
+        {
+            foreach (var pr in ports)
+            {
+                var t = pr?.GetType();
+                Ports.Add(new PortVm(
+                    GetInt(t, pr, "index"),
+                    GetStr(t, pr, "name"),
+                    GetStr(t, pr, "band"),
+                    GetDecimalAsDouble(t, pr, "frequency"),
+                    GetStr(t, pr, "source"),
+                    GetInt(t, pr, "rxAntenna"),
+                    GetInt(t, pr, "txAntenna")));
+            }
+        }
+
+        Antennas = new List<AntVm>();
+        if (p.TryGetValue("antennas", out var antsRaw) && antsRaw is System.Collections.IEnumerable ants)
+        {
+            foreach (var a in ants)
+            {
+                var t = a?.GetType();
+                Antennas.Add(new AntVm(GetInt(t, a, "Index"), GetStr(t, a, "Name")));
+            }
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private static int GetInt(Type? t, object? o, string p)
+    {
+        var v = t?.GetProperty(p)?.GetValue(o);
+        return v is null ? 0 : Convert.ToInt32(v);
+    }
+    private static string GetStr(Type? t, object? o, string p)
+        => t?.GetProperty(p)?.GetValue(o)?.ToString() ?? "";
+    private static double GetDecimalAsDouble(Type? t, object? o, string p)
+    {
+        var v = t?.GetProperty(p)?.GetValue(o);
+        if (v is null) return 0;
+        try { return Convert.ToDouble(v); } catch { return 0; }
+    }
+
+    private static string FormatBand(string raw)
+    {
+        if (string.IsNullOrEmpty(raw) || raw == "None") return "—";
+        return raw.StartsWith("Band", StringComparison.Ordinal) ? raw[4..] : raw;
+    }
+
+    private async Task Select(int port, int antenna)
+    {
+        if (Device is null) return;
+        await Store.ExecuteAsync(new DeviceCommand(
+            Device.Id, "selectAntenna",
+            new Dictionary<string, object?> { ["port"] = port, ["antenna"] = antenna }));
+    }
+}

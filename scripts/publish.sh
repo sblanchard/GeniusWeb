@@ -7,7 +7,7 @@ OUTROOT="${1:-publish}"
 
 for RID in linux-x64 linux-arm64 win-x64 osx-arm64; do
     echo "=== publishing $RID ==="
-    dotnet publish src/GeniusOnline.Web/GeniusOnline.Web.csproj \
+    dotnet publish src/GeniusWeb.Web/GeniusWeb.Web.csproj \
         -c Release \
         -r "$RID" \
         --self-contained true \

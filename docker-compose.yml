@@ -1,4 +1,4 @@
-# GeniusOnline — Docker Compose
+# GeniusWeb — Docker Compose
 #
 # UDP device discovery (AntennaGenius / PowerGenius / TunerGenius)
 # broadcasts on the LAN, so the service runs with `network_mode: host`.
@@ -17,9 +17,9 @@
 #     git submodule update --init --recursive
 
 services:
-  geniusonline:
-    image: geniusonline:latest
-    container_name: geniusonline
+  geniusweb:
+    image: geniusweb:latest
+    container_name: geniusweb
     build:
       context: .
       dockerfile: Dockerfile
@@ -27,13 +27,23 @@ services:
     restart: unless-stopped
     volumes:
       - ./data:/data
+      - ./logs:/app/logs
+      - ./data-protection-keys:/root/.aspnet/DataProtection-Keys
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://0.0.0.0:9050
-      - ConnectionStrings__Default=Data Source=/data/geniusonline.db
+      - ConnectionStrings__Default=Data Source=/data/geniusweb.db
+    # The aspnet image has neither wget nor curl, so a check using them can only ever fail, and
+    # autoheal then restarts a healthy panel for good. Bash ships in the image.
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:9050/health"]
+      test:
+        - CMD
+        - bash
+        - -c
+        - exec 3<>/dev/tcp/127.0.0.1/9050 && printf 'GET /health HTTP/1.0\r\n\r\n' >&3 && grep -q ' 200 ' <&3
       interval: 30s
       timeout: 5s
-      start_period: 15s
+      start_period: 60s
       retries: 3
+    labels:
+      autoheal: "true"

@@ -1,4 +1,4 @@
-# GeniusOnline
+# GeniusWeb
 
 Mobile-friendly web control panel for FlexRadio Genius accessories — RotatorGenius, AntennaGenius, PowerGenius, TunerGenius — all from one ASP.NET Core app.
 
@@ -13,7 +13,7 @@ Mobile-friendly web control panel for FlexRadio Genius accessories — RotatorGe
 The four FlexRadio Genius client libraries (`RotatorGenius.Communication`, `AntennaGenius.Core`, `PowerGenius.Core`, `TunerGenius.TgLib`) live under `vendor/` as **git submodules**. Clone with:
 
 ```bash
-git clone --recurse-submodules https://github.com/sblanchard/GeniusOnline.git
+git clone --recurse-submodules https://github.com/sblanchard/GeniusWeb.git
 # or after a normal clone
 git submodule update --init --recursive
 ```
@@ -22,18 +22,18 @@ git submodule update --init --recursive
 
 ```
 src/
-  GeniusOnline.Contracts/   DTOs (DeviceKind, DeviceStatusFrame, DeviceCommand…)
-  GeniusOnline.Devices/     IDeviceAdapter + per-kind adapters + DeviceRegistry hosted service
-  GeniusOnline.Data/        EF Core DbContext, entities (Preset, UserSetting, AuditLog)
-  GeniusOnline.Web/         ASP.NET host, Blazor components, SignalR hub, auth
+  GeniusWeb.Contracts/   DTOs (DeviceKind, DeviceStatusFrame, DeviceCommand…)
+  GeniusWeb.Devices/     IDeviceAdapter + per-kind adapters + DeviceRegistry hosted service
+  GeniusWeb.Data/        EF Core DbContext, entities (Preset, UserSetting, AuditLog)
+  GeniusWeb.Web/         ASP.NET host, Blazor components, SignalR hub, auth
 tests/
-  GeniusOnline.Devices.Tests/
-  GeniusOnline.Web.Tests/
+  GeniusWeb.Devices.Tests/
+  GeniusWeb.Web.Tests/
 tools/
-  GeniusOnline.Tools.PasswordHash/   tiny CLI for generating Auth:PasswordHash values
+  GeniusWeb.Tools.PasswordHash/   tiny CLI for generating Auth:PasswordHash values
 scripts/
   publish.sh              multi-RID self-contained publish
-  geniusonline.service    systemd unit
+  geniusweb.service    systemd unit
 ```
 
 ## Run locally
@@ -41,14 +41,14 @@ scripts/
 Dev (auto-listens on `0.0.0.0:9050`):
 
 ```bash
-dotnet run --project src/GeniusOnline.Web
+dotnet run --project src/GeniusWeb.Web
 ```
 
 Open http://localhost:9050 — you'll be redirected to `/login`. The default seeded password is **`geniusonline`** — change it before exposing the host (see "Changing the password" below).
 
 ## Configure devices
 
-Edit `src/GeniusOnline.Web/appsettings.json` (or use a Production `appsettings.Production.json` next to the deployed binary):
+Edit `src/GeniusWeb.Web/appsettings.json` (or use a Production `appsettings.Production.json` next to the deployed binary):
 
 ```json
 {
@@ -68,7 +68,7 @@ Edit `src/GeniusOnline.Web/appsettings.json` (or use a Production `appsettings.P
 ## Changing the password
 
 ```bash
-dotnet run --project tools/GeniusOnline.Tools.PasswordHash -- "my new password"
+dotnet run --project tools/GeniusWeb.Tools.PasswordHash -- "my new password"
 # → pbkdf2.sha256.210000.<salt>.<hash>
 ```
 
@@ -91,8 +91,8 @@ dotnet test
 ### Docker / Compose
 
 ```bash
-git clone --recurse-submodules https://github.com/sblanchard/GeniusOnline.git
-cd GeniusOnline
+git clone --recurse-submodules https://github.com/sblanchard/GeniusWeb.git
+cd GeniusWeb
 docker compose up -d --build
 ```
 
@@ -102,11 +102,11 @@ The compose file uses `network_mode: host` so UDP device discovery works on the 
 
 ```bash
 ./scripts/publish.sh
-sudo useradd -r geniusonline
-sudo install -d -o geniusonline -g geniusonline /opt/geniusonline /var/lib/geniusonline
-sudo cp -r publish/linux-arm64/* /opt/geniusonline/
-sudo cp scripts/geniusonline.service /etc/systemd/system/
-sudo systemctl enable --now geniusonline
+sudo useradd -r geniusweb
+sudo install -d -o geniusweb -g geniusweb /opt/geniusweb /var/lib/geniusweb
+sudo cp -r publish/linux-arm64/* /opt/geniusweb/
+sudo cp scripts/geniusweb.service /etc/systemd/system/
+sudo systemctl enable --now geniusweb
 ```
 
 ### Reverse proxy / HTTPS / remote access
