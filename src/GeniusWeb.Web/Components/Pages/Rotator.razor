@@ -1,5 +1,6 @@
 @page "/rotator"
 @attribute [Authorize]
+@using GeniusWeb.Web.Services
 @inject GeniusWeb.Web.Services.DeviceLiveStore Store
 @implements IDisposable
 
@@ -13,7 +14,17 @@ else
 {
     <div class="rg-shell">
         <div class="rg-header">
-            <span class="rg-tab">Rotator 1 <strong>@Azimuth.ToString("000")°</strong></span>
+            @if (Rotators.Count == 0)
+            {
+                <span class="rg-tab">Rotator <strong>---°</strong></span>
+            }
+            @foreach (var rotator in Rotators)
+            {
+                var index = rotator.Index;
+                <button class="rg-tab @(index == Selected ? "rg-tab-on" : "")" @onclick="() => Select(index)">
+                    @rotator.Name <strong>@Heading(rotator.Azimuth)°</strong>
+                </button>
+            }
         </div>
 
         <div class="rg-canvas">
@@ -73,16 +84,17 @@ else
                 }
 
                 @* Big azimuth readout in the middle *@
-                @((MarkupString)$"<text x='0' y='6' fill='#52b788' font-size='22' font-weight='700' text-anchor='middle'>{Azimuth:000}°</text>")
+                @((MarkupString)$"<text x='0' y='6' fill='#52b788' font-size='22' font-weight='700' text-anchor='middle'>{Heading(Current?.Azimuth)}°</text>")
             </svg>
         </div>
 
         <div class="rg-actions">
-            <button class="rg-btn" @onclick="GoCcw">
+            <button class="rg-btn" @onclick="GoCcw" disabled="@(!CanTurn)">
                 <span class="rg-arr">⏪</span> CCW
             </button>
-            <button class="rg-btn rg-go" @onclick="Stop">STOP</button>
-            <button class="rg-btn" @onclick="GoCw">
+            @* The controller has one stop, for everything it drives. *@
+            <button class="rg-btn rg-go" @onclick="Stop">@(Rotators.Count > 1 ? "STOP ALL" : "STOP")</button>
+            <button class="rg-btn" @onclick="GoCw" disabled="@(!CanTurn)">
                 CW <span class="rg-arr">⏩</span>
             </button>
         </div>
@@ -90,7 +102,7 @@ else
         <div class="rg-presets">
             @foreach (var (label, az) in Presets)
             {
-                <button class="rg-preset" @onclick="() => OnSelectTarget(az)">@label</button>
+                <button class="rg-preset" @onclick="() => OnSelectTarget(az)" disabled="@(!CanTurn)">@label</button>
             }
         </div>
     </div>
@@ -113,7 +125,20 @@ else
         font-size: 13px;
         color: #a8c8e0;
     }
+    .rg-header { gap: 6px; }
+    .rg-tab {
+        background: none;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        color: inherit;
+        font: inherit;
+        padding: 4px 10px;
+    }
+    button.rg-tab { cursor: pointer; }
+    button.rg-tab:hover { border-color: #52b788; color: #fff; }
+    .rg-tab-on { background: #1f3a3a; border-color: #52b788; color: #fff; }
     .rg-tab strong { color: #52b788; margin-left: 6px; font-size: 16px; }
+    .rg-btn:disabled, .rg-preset:disabled { opacity: 0.4; cursor: not-allowed; }
     .rg-canvas {
         background: #0d1727;
         padding: 12px;
@@ -163,6 +188,8 @@ else
 
 @code {
     private DeviceIdentity? Device;
+    private IReadOnlyList<RotatorReading> Rotators = [];
+    private int Selected;
     private int Azimuth;
     private int? TargetAz;
     private static readonly (string Label, int Azimuth)[] Presets =
@@ -190,22 +217,35 @@ else
         frame ??= Device is null ? null : Store.Get(Device.Id);
         if (frame?.Payload.TryGetValue("rotators", out var raw) == true && raw is System.Collections.IEnumerable rotators)
         {
-            // RotatorDevice sets Number = i (0-based) but names the slot "Rotator {i+1}".
-            // Physical Rotator 1 has Number == 0.
-            foreach (var r in rotators)
-            {
-                var t = r?.GetType();
-                var num = t?.GetProperty("Number")?.GetValue(r) as int?;
-                if (num != 0) continue;
-                var az = t?.GetProperty("Azimuth")?.GetValue(r) as int?;
-                var tg = t?.GetProperty("Target")?.GetValue(r) as int?;
-                if (az is int a && a != 999) Azimuth = a;
-                TargetAz = tg is int tv && tv != 999 ? tv : null;
-                break;
-            }
+            Rotators = RotatorReadings.From(rotators);
+            if (Rotators.All(r => r.Index != Selected)) Selected = Rotators.FirstOrDefault()?.Index ?? 0;
+            Show();
         }
         InvokeAsync(StateHasChanged);
     }
+
+    private RotatorReading? Current => Rotators.FirstOrDefault(r => r.Index == Selected);
+
+    /// <summary>Until a status arrives the first rotator is assumed, as it always was.</summary>
+    private bool CanTurn => Device is not null && (Current is null || Current.HasHeading);
+
+    private static string Heading(int? azimuth) => azimuth?.ToString("000") ?? "---";
+
+    /// <summary>Put the selected rotator on the dial. A slot with no heading draws at north, with no target.</summary>
+    private void Show()
+    {
+        Azimuth = Current?.Azimuth ?? 0;
+        TargetAz = Current?.Target;
+    }
+
+    private void Select(int index)
+    {
+        Selected = index;
+        Show();
+    }
+
+    /// <summary>The arguments that send a command to the selected rotator, and no other.</summary>
+    private Dictionary<string, object?> Addressed() => new() { ["rotator"] = Selected };
 
     private async Task OnDialClick(MouseEventArgs e)
     {
@@ -217,22 +257,23 @@ else
 
     private async Task OnSelectTarget(int azimuth)
     {
+        if (!CanTurn) return;
         TargetAz = azimuth;
         if (Device is not null)
         {
             await Store.ExecuteAsync(new DeviceCommand(
                 Device.Id, "rotateTo",
-                new Dictionary<string, object?> { ["azimuth"] = azimuth }));
+                new Dictionary<string, object?>(Addressed()) { ["azimuth"] = azimuth }));
         }
     }
 
-    private Task GoCw() => Device is null
+    private Task GoCw() => !CanTurn
         ? Task.CompletedTask
-        : Store.ExecuteAsync(new DeviceCommand(Device.Id, "cw"));
+        : Store.ExecuteAsync(new DeviceCommand(Device!.Id, "cw", Addressed()));
 
-    private Task GoCcw() => Device is null
+    private Task GoCcw() => !CanTurn
         ? Task.CompletedTask
-        : Store.ExecuteAsync(new DeviceCommand(Device.Id, "ccw"));
+        : Store.ExecuteAsync(new DeviceCommand(Device!.Id, "ccw", Addressed()));
 
     private Task Stop() => Device is null
         ? Task.CompletedTask

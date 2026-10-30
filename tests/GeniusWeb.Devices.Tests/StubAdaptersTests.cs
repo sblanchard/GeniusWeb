@@ -1,6 +1,7 @@
 using GeniusWeb.Contracts;
 using GeniusWeb.Devices.Antenna;
 using GeniusWeb.Devices.Power;
+using GeniusWeb.Devices.Rotator;
 using GeniusWeb.Devices.Tuner;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -40,5 +41,44 @@ public class AdapterContractTests
 
         var r = await t.ExecuteAsync(new DeviceCommand("t", "fly"));
         Assert.False(r.Success);
+    }
+
+    [Theory]
+    [InlineData(-1, 2, false)]
+    [InlineData(0, 2, true)]
+    [InlineData(1, 2, true)]
+    [InlineData(2, 2, false)]
+    [InlineData(1, 1, false)]
+    [InlineData(1, 0, true)] // no status yet: the controller is the judge of what it has
+    [InlineData(-1, 0, false)]
+    public void Rotator_addresses_only_what_the_controller_has(int index, int known, bool allowed) =>
+        Assert.Equal(allowed, RotatorAdapter.IsKnownRotator(index, known));
+
+    [Fact]
+    public async Task Rotator_refuses_to_turn_a_rotator_that_does_not_exist()
+    {
+        var r = new RotatorAdapter(
+            new DeviceIdentity("r", DeviceKind.Rotator, "Rot", "192.0.2.99", 9006),
+            NullLogger<RotatorAdapter>.Instance);
+
+        var result = await r.ExecuteAsync(new DeviceCommand("r", "rotateTo",
+            new Dictionary<string, object?> { ["rotator"] = -1, ["azimuth"] = 90 }));
+
+        Assert.False(result.Success);
+        Assert.Contains("No such rotator", result.Message);
+    }
+
+    [Fact]
+    public async Task Rotator_stop_is_never_refused_for_the_rotator_it_names()
+    {
+        // STOP stops the whole controller, and is the one command that must not be argued with.
+        var r = new RotatorAdapter(
+            new DeviceIdentity("r", DeviceKind.Rotator, "Rot", "192.0.2.99", 9006),
+            NullLogger<RotatorAdapter>.Instance);
+
+        var result = await r.ExecuteAsync(new DeviceCommand("r", "stop",
+            new Dictionary<string, object?> { ["rotator"] = -1 }));
+
+        Assert.DoesNotContain("No such rotator", result.Message ?? "");
     }
 }

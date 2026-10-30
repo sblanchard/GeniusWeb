@@ -60,6 +60,9 @@ public sealed class RotatorAdapter : DeviceAdapterBase
             // RotatorDevice's API is 0-indexed (it sends $"|P{rotatorIndex+1}"),
             // so rotator==0 means physical rotator 1 on the box.
             var rotatorIndex = AsInt(command.Args, "rotator", 0);
+            // Not for "stop", which stops the whole controller and must never be argued with.
+            if (command.Verb is "rotateTo" or "cw" or "ccw" && !IsKnownRotator(rotatorIndex, _device.Rotators.Count))
+                return Task.FromResult(new DeviceCommandResult(false, $"No such rotator: {rotatorIndex + 1}"));
             switch (command.Verb)
             {
                 case "rotateTo":
@@ -93,6 +96,13 @@ public sealed class RotatorAdapter : DeviceAdapterBase
             return Task.FromResult(new DeviceCommandResult(false, ex.Message));
         }
     }
+
+    /// <summary>
+    /// Whether a command may address this slot. Until a first status says how many there are
+    /// (<paramref name="known"/> is 0), the controller is the judge of what it has.
+    /// </summary>
+    public static bool IsKnownRotator(int index, int known) =>
+        index >= 0 && (known == 0 || index < known);
 
     private static int AsInt(IReadOnlyDictionary<string, object?>? args, string key, int fallback)
         => args is not null && args.TryGetValue(key, out var v) ? Convert.ToInt32(v) : fallback;
