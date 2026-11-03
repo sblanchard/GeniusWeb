@@ -10,6 +10,11 @@ public sealed class RotatorAdapter : DeviceAdapterBase
     private readonly RotatorDevice _device;
     private readonly ILogger<RotatorAdapter> _logger;
 
+    // The library raises its events on its own poll thread. Everything that decides whether
+    // the adapter is running or stopped, and every state a reading or an error writes, goes
+    // through this lock so a manual disconnect cannot interleave with them.
+    private readonly object _linkGate = new();
+
     public RotatorAdapter(DeviceIdentity identity, ILogger<RotatorAdapter> logger)
         : base(identity)
     {
@@ -27,7 +32,7 @@ public sealed class RotatorAdapter : DeviceAdapterBase
 
     public override async Task ConnectAsync(CancellationToken ct = default)
     {
-        MarkRunning();
+        lock (_linkGate) MarkRunning();
         if (State == DeviceConnectionState.Connected) return;
         State = DeviceConnectionState.Connecting;
 
@@ -46,10 +51,10 @@ public sealed class RotatorAdapter : DeviceAdapterBase
 
     public override Task DisconnectAsync(CancellationToken ct = default)
     {
-        MarkStopped();
+        lock (_linkGate) MarkStopped();
         try { _device.Disconnect(); }
         catch (Exception ex) { _logger.LogWarning(ex, "Rotator {Id} disconnect", Identity.Id); }
-        State = DeviceConnectionState.Disconnected;
+        lock (_linkGate) State = DeviceConnectionState.Disconnected;
         return Task.CompletedTask;
     }
 
@@ -109,7 +114,6 @@ public sealed class RotatorAdapter : DeviceAdapterBase
 
     private void OnDataReceived(object? sender, RotatorDataEventArgs e)
     {
-        if (IsStopped) return;
         var payload = new Dictionary<string, object?>
         {
             ["isRotating"] = _device.IsRotating,
@@ -125,13 +129,25 @@ public sealed class RotatorAdapter : DeviceAdapterBase
                 r.LimitCCW,
             }).ToArray(),
         };
-        PublishStatus(payload);
+
+        lock (_linkGate)
+        {
+            if (IsStopped) return;
+            // The fresh headings go out first, so no frame ever carries old headings under a
+            // new state ...
+            PublishStatus(payload);
+            // ... and a status read is proof the link is up. The library follows a lost
+            // controller by itself, and nothing else tells the adapter it is back after a
+            // connection error marked it Faulted, so it would go on saying so while fresh
+            // headings flowed. A no-op while already Connected, so one frame per reading.
+            State = DeviceConnectionState.Connected;
+        }
     }
 
     private void OnConnectionError(object? sender, RotatorErrorEventArgs e)
     {
-        _logger.LogWarning("Rotator {Id} connection error", Identity.Id);
-        State = DeviceConnectionState.Faulted;
+        _logger.LogWarning("Rotator {Id} connection error: {Reason}", Identity.Id, e.Message);
+        lock (_linkGate) State = DeviceConnectionState.Faulted;
     }
 
     public override ValueTask DisposeAsync()
